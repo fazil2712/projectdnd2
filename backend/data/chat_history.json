@@ -1,8 +1,44 @@
 [
   {
-    "id": "init-1791914047224",
+    "id": "init-1791919112343",
     "role": "dm",
     "content": "Memories of your past linger heavily—HALP was suddenly teleported to a fantasy realm. He helped that world's \"main character\" w... \n\nCold mountain wind sweeps across the crag, carrying the acrid smell of burnt pitch and wet granite. Ahead, half-concealed beneath the crumbling stone archway of a forgotten Netherese excavation, two hobgoblin scouts clad in banded mail examine a shattered warding stone with iron lanterns. One of them snarls in Goblin and raises a barbed spear as a stray pebble rolls beneath your boot.\n\nBehind you lies the steep, mud-choked descent to the Trade Way. What do you do?",
     "timestamp": "Prologue"
+  },
+  {
+    "id": "player-1791919133653",
+    "role": "player",
+    "content": "hello",
+    "timestamp": "02:18"
+  },
+  {
+    "id": "dm-1791919133655",
+    "role": "dm",
+    "content": "As the cold mountain wind whips around you, you detect the telltale creak of leather and ring of metal as one of the hobgoblin scouts tightens his grip on a barbed spear. The second scout barks something in harsh Goblin that sounds like \"Tch'k! Ma'vosh!\"\n\nTheir postures tense with sudden alertness, their lanterns casting eerie shadows across ancient Netherese glyph-carved stonework. One gestures toward the dense pine forest below while the other raises his weapon to point directly at you.",
+    "timestamp": "02:18"
+  },
+  {
+    "id": "player-1791919144463",
+    "role": "player",
+    "content": "hello",
+    "timestamp": "02:19"
+  },
+  {
+    "id": "dm-1791919144465",
+    "role": "dm",
+    "content": "The hobgoblins exchange quick snarls in Goblin, clearly debating whether to call for reinforcements or investigate immediately. The one with the spear takes a few cautious steps forward into clearer view of your position, his weapon held ready but not yet raised for an attack.\n\nHis companion lingers near the archway's shadows, gripping what appears to be a war hammer in meaty hands while scanning the treeline below suspiciously. Their lanterns cast dancing light across the crumbling stonework, revealing glimpses of ancient Netherese script on weathered columns beneath the overhang.",
+    "timestamp": "02:19"
+  },
+  {
+    "id": "player-1791919214008",
+    "role": "player",
+    "content": "hello",
+    "timestamp": "02:20"
+  },
+  {
+    "id": "dm-1791919214010",
+    "role": "dm",
+    "content": "The spear-wielding hobgoblin snarls another sharp command in Goblin that sounds like \"Vash'k! Vash'k!\" His companion grunts acknowledgment and steps forward, war hammer raised for a threatening posture.\n\nBoth creatures now move to flank your position with practiced coordination - the spearman advancing cautiously while his partner covers him from the archway. The wind shifts again, carrying up metallic smoke from below along with echoes of hobgoblin voices calling out in alarm.",
+    "timestamp": "02:20"
   }
 ]

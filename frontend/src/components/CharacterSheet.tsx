@@ -16,12 +16,14 @@ import {
   Feather,
 } from 'lucide-react';
 import { Character, InventoryItem } from '../types/game';
+import { SpellManagerModal } from './SpellManagerModal';
 
 interface CharacterSheetProps {
   character: Character | null;
   onModifyHp: (delta: number) => Promise<void>;
   onToggleSlot: (level: number, slotIndex: number) => Promise<void>;
   onToggleItem: (itemId: string) => Promise<void>;
+  onCharacterUpdated?: (updatedChar: Character) => void;
 }
 
 export const CharacterSheet: React.FC<CharacterSheetProps> = ({
@@ -29,9 +31,11 @@ export const CharacterSheet: React.FC<CharacterSheetProps> = ({
   onModifyHp,
   onToggleSlot,
   onToggleItem,
+  onCharacterUpdated,
 }) => {
   const [activeTab, setActiveTab] = useState<'inventory' | 'spells' | 'skills' | 'traits'>('inventory');
   const [hpInput, setHpInput] = useState<string>('1');
+  const [isSpellManagerOpen, setIsSpellManagerOpen] = useState<boolean>(false);
 
   if (!character) {
     return (
@@ -637,25 +641,60 @@ export const CharacterSheet: React.FC<CharacterSheetProps> = ({
 
             {/* Known Spells */}
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                Prepared / Known Spells
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                  Prepared / Known Spells
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSpellManagerOpen(true)}
+                  className="btn btn-secondary"
+                  style={{
+                    fontSize: '11px',
+                    padding: '3px 8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    borderColor: 'var(--border-gold)',
+                    color: 'var(--accent-gold)',
+                  }}
+                >
+                  <Sparkles size={12} />
+                  Manage Spells
+                </button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {character.known_spells.map((spell) => (
+                {character.known_spells && character.known_spells.length > 0 ? (
+                  character.known_spells.map((spell) => (
+                    <div
+                      key={spell}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: 'var(--bg-card)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '12px',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--border-subtle)',
+                      }}
+                    >
+                      ✨ {spell}
+                    </div>
+                  ))
+                ) : (
                   <div
-                    key={spell}
                     style={{
-                      padding: '6px 10px',
+                      padding: '12px',
                       backgroundColor: 'var(--bg-card)',
                       borderRadius: 'var(--radius-sm)',
                       fontSize: '12px',
-                      color: 'var(--text-primary)',
-                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--text-muted)',
+                      border: '1px dashed var(--border-subtle)',
+                      textAlign: 'center',
                     }}
                   >
-                    ✨ {spell}
+                    No spells prepared or known. Click &quot;Manage Spells&quot; to choose spells.
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>
@@ -818,6 +857,20 @@ export const CharacterSheet: React.FC<CharacterSheetProps> = ({
           </div>
         )}
       </div>
+
+      {/* Spellbook / Spells Manager Modal */}
+      {isSpellManagerOpen && (
+        <SpellManagerModal
+          isOpen={isSpellManagerOpen}
+          character={character}
+          onClose={() => setIsSpellManagerOpen(false)}
+          onCharacterUpdated={(updatedChar) => {
+            if (onCharacterUpdated) {
+              onCharacterUpdated(updatedChar);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

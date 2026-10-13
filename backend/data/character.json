@@ -4,7 +4,7 @@
   "subclass": null,
   "level": 1,
   "race": "Human",
-  "alignment": "chotic neutral",
+  "alignment": "chaotic neutral",
   "background": "wanderer",
   "backstory": "HALP was suddenly teleported to a fantasy realm. He helped that world's \"main character\" win, only to be instantly thrown into a new reality with his stats and gear wiped to zero.\n\nHe realized his curse: he is a wanderer forced to aid heroes across the multiverse. After every completed quest—even when he once tried helping a villain instead—he is ripped away. Though his items reset, his mind retains it all. Across countless lives, HALP has mastered legendary martial arts and fused universal arcane secrets into his own deadly, chaotic magic style.\n\nRecently, the cycle broke. For the first time ever, HALP and his hero were defeated. Expecting death, he was instead pulled into this world. Armed with lifetimes of experience, HALP senses a profound shift. After an eternity as the sidekick, he believes this realm is where his endless loop will finally end.",
   "racial_traits": [
@@ -12,12 +12,12 @@
     "Resourceful: Driven and ambitious, adaptable to any climate or discipline."
   ],
   "abilities": {
-    "strength": 10,
-    "dexterity": 10,
+    "strength": 8,
+    "dexterity": 8,
     "constitution": 18,
     "intelligence": 18,
     "wisdom": 18,
-    "charisma": 10
+    "charisma": 8
   },
   "max_hp": 10,
   "current_hp": 10,
@@ -155,26 +155,26 @@
   "darkvision_feet": 0,
   "proficiency_bonus": 2,
   "ability_modifiers": {
-    "strength": 0,
-    "dexterity": 0,
+    "strength": -1,
+    "dexterity": -1,
     "constitution": 4,
     "intelligence": 4,
     "wisdom": 4,
-    "charisma": 0
+    "charisma": -1
   },
   "saving_throw_bonuses": {
-    "strength": 0,
-    "dexterity": 2,
+    "strength": -1,
+    "dexterity": 1,
     "constitution": 4,
     "intelligence": 6,
     "wisdom": 4,
-    "charisma": 0
+    "charisma": -1
   },
   "skill_bonuses": {
-    "athletics": 0,
-    "acrobatics": 0,
-    "sleight_of_hand": 4,
-    "stealth": 4,
+    "athletics": -1,
+    "acrobatics": -1,
+    "sleight_of_hand": 3,
+    "stealth": 3,
     "arcana": 4,
     "history": 4,
     "investigation": 6,
@@ -185,16 +185,16 @@
     "medicine": 4,
     "perception": 6,
     "survival": 4,
-    "deception": 2,
-    "intimidation": 0,
-    "performance": 0,
-    "persuasion": 0
+    "deception": 1,
+    "intimidation": -1,
+    "performance": -1,
+    "persuasion": -1
   },
   "passive_perception": 16,
-  "armor_class": 10,
+  "armor_class": 9,
   "spell_save_dc": 14,
   "spell_attack_bonus": 6,
   "total_weight_carried": 9.0,
-  "carrying_capacity_lbs": 150.0,
+  "carrying_capacity_lbs": 120.0,
   "is_encumbered": false
 }

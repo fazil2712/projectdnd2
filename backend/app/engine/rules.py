@@ -317,6 +317,84 @@ def apply_damage(character: Character, amount: int, is_critical: bool = False) -
     }
 
 
+def resolve_enemy_attack(
+    character: Character,
+    attacker: str,
+    attack_bonus: int,
+    damage_formula: str,
+    damage_type: str = "physical",
+    advantage: bool = False,
+    disadvantage: bool = False
+) -> Dict[str, Any]:
+    """
+    Deterministically resolves an enemy attack against the player character.
+    Follows official D&D 5e combat mechanics:
+    - Natural 1: Automatic miss.
+    - Natural 20: Critical hit (doubles damage dice via roll_dice(..., is_critical=True)).
+    - Normal hit: Total >= character.armor_class.
+    - On hit: Deducts damage via apply_damage(character, ...).
+    """
+    roll = roll_d20(modifier=attack_bonus, advantage=advantage, disadvantage=disadvantage)
+    raw = roll["selected_raw"]
+    target_ac = character.armor_class
+
+    is_fumble = (raw == 1)
+    is_crit = (raw == 20)
+    hit = False
+
+    if is_fumble:
+        hit = False
+    elif is_crit:
+        hit = True
+    else:
+        hit = (roll["total"] >= target_ac)
+
+    damage_total = 0
+    dmg_roll = None
+    dmg_resolution = None
+
+    if hit:
+        dmg_roll = roll_dice(damage_formula, is_critical=is_crit)
+        damage_total = max(1, dmg_roll["total"])
+        dmg_resolution = apply_damage(character, damage_total, is_critical=is_crit)
+
+        if is_crit:
+            summary = (
+                f"{attacker} scores a CRITICAL HIT on {character.name}! "
+                f"(Attack: {roll['notation']} vs AC {target_ac}) dealing {damage_total} {damage_type} damage ({dmg_roll['notation']})."
+            )
+        else:
+            summary = (
+                f"{attacker} HITS {character.name}! "
+                f"(Attack: {roll['notation']} vs AC {target_ac}) dealing {damage_total} {damage_type} damage ({dmg_roll['notation']})."
+            )
+    else:
+        if is_fumble:
+            summary = f"{attacker} FUMBLES (Natural 1)! The attack misses {character.name} completely."
+        else:
+            summary = f"{attacker} MISSES {character.name}. (Attack: {roll['notation']} vs AC {target_ac})."
+
+    return {
+        "attacker": attacker,
+        "roll": roll,
+        "hit": hit,
+        "is_critical": is_crit,
+        "is_critical_hit": is_crit,
+        "is_critical_miss": is_fumble,
+        "is_fumble": is_fumble,
+        "target_ac": target_ac,
+        "damage_type": damage_type,
+        "damage_total": damage_total,
+        "damage_dice": dmg_roll["notation"] if dmg_roll else None,
+        "damage_resolution": dmg_resolution,
+        "current_hp": character.current_hp,
+        "max_hp": character.max_hp,
+        "is_unconscious": character.current_hp <= 0,
+        "summary": summary,
+        "mechanical_summary": f"[ENEMY ATTACK: {summary}]",
+    }
+
+
 def apply_heal(character: Character, amount: int) -> Dict[str, Any]:
     """
     Heal current HP up to max HP. Clears unconsciousness and resets death saves if HP rises above 0.

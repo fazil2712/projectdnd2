@@ -18,12 +18,15 @@ from .engine.rules import (
     resolve_check,
     resolve_attack_damage,
     resolve_death_save,
+    resolve_enemy_attack,
+    apply_damage,
     validate_inventory_item,
     validate_and_consume_spell_slot,
     validate_and_clamp_character_stats,
     RACES_5E,
     RACE_TRAITS_5E,
 )
+from .engine.dice import roll_dice
 from .llm.client import ollama_client
 from .llm.parser import StreamParser
 from .llm.prompts import build_system_prompt, build_messages_payload
@@ -97,6 +100,19 @@ class LevelUpRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class SpellLearnRequest(BaseModel):
+    spell_name: str
+    bypass_class_limit: bool = False
+
+
+class SpellRemoveRequest(BaseModel):
+    spell_name: str
+
+
+class SpellSetRequest(BaseModel):
+    spells: list[str]
+
+
 class CampaignCreationRequest(BaseModel):
     world_setting: str
     genre: Optional[str] = None
@@ -119,6 +135,7 @@ class CampaignCreationRequest(BaseModel):
     narrative_tone: Optional[str] = None
     starting_location_name: Optional[str] = None
     starting_location_description: Optional[str] = None
+    custom_spells: Optional[list[str]] = None
 
 
 
@@ -134,6 +151,7 @@ async def get_game_state():
     char = await state_manager.get_character()
     lore = await lore_manager.get_raw_lore()
     location = await lore_manager.get_current_location()
+    active_enemies = await lore_manager.get_active_enemies()
     chronicle_text = await chronicle_manager.get_chronicle_markdown()
     recent_turns = await chronicle_manager.get_recent_turns()
     chat_history = await chronicle_manager.get_chat_history()
@@ -143,6 +161,10 @@ async def get_game_state():
         "character": char.model_dump(),
         "location": location,
         "campaign_name": lore.get("campaign_name", "D&D 5e Adventure"),
+        "current_act": lore.get("current_act", 1),
+        "tension_clock": lore.get("tension_clock", 0),
+        "active_enemies": active_enemies,
+        "npcs": lore.get("npcs", {}),
         "chronicle_text": chronicle_text,
         "recent_turns": recent_turns,
         "chat_history": chat_history,
@@ -425,6 +447,19 @@ async def execute_player_action(req: ActionRequest, request: Request):
                     })
                 }
 
+            elif event_type == "spell_learned":
+                spell_info = parsed_event["spell"]
+                spell_name = spell_info.get("name", "Mysterious Spell").strip()
+                await state_manager.add_known_spell(spell_name)
+                char = await state_manager.get_character()
+                yield {
+                    "event": "spell_learned",
+                    "data": json.dumps({
+                        "spell": spell_info,
+                        "character": char.model_dump(),
+                    })
+                }
+
             elif event_type == "level_up":
                 lvl_info = parsed_event["level_up"]
                 lvl_num = int(lvl_info.get("level", character.level + 1))
@@ -435,6 +470,101 @@ async def execute_player_action(req: ActionRequest, request: Request):
                     "event": "level_up",
                     "data": json.dumps({
                         "level_up": res,
+                        "character": character.model_dump(),
+                    })
+                }
+
+            elif event_type == "location_changed":
+                loc_data = parsed_event["location"]
+                await lore_manager.set_current_location(
+                    name=loc_data["name"],
+                    description=loc_data.get("description", ""),
+                    threat_level=loc_data.get("threat_level", "Moderate")
+                )
+                await chronicle_manager.append_milestone(
+                    f"Location Discovery: Arrived at {loc_data['name']} ({loc_data.get('threat_level', 'Moderate')})"
+                )
+                active_loc = await lore_manager.get_current_location()
+                yield {
+                    "event": "location_changed",
+                    "data": json.dumps({"location": active_loc or loc_data})
+                }
+
+            elif event_type == "npc_updated":
+                npc_data = parsed_event["npc"]
+                updated_npc = await lore_manager.update_npc(
+                    name=npc_data["name"],
+                    role=npc_data.get("role", ""),
+                    attitude=npc_data.get("attitude", "neutral"),
+                    note=npc_data.get("note", "")
+                )
+                yield {
+                    "event": "npc_updated",
+                    "data": json.dumps({"npc": updated_npc})
+                }
+
+            elif event_type == "story_progress":
+                prog = parsed_event["progress"]
+                res = await lore_manager.advance_story_progress(
+                    act=prog.get("act"),
+                    tension_delta=prog.get("tension_delta", 0),
+                    milestone=prog.get("milestone", "")
+                )
+                if prog.get("milestone"):
+                    await chronicle_manager.append_milestone(f"Story Milestone: {prog['milestone']}")
+                yield {
+                    "event": "story_progress",
+                    "data": json.dumps({"progress": res})
+                }
+
+            elif event_type == "encounter_started":
+                enemy = parsed_event["enemy"]
+                en_res = await lore_manager.add_or_update_enemy(
+                    name=enemy["name"],
+                    hp=enemy.get("hp", 20),
+                    ac=enemy.get("ac", 12),
+                    attack_bonus=enemy.get("attack_bonus", 3),
+                    damage_formula=enemy.get("damage", "1d6+1")
+                )
+                yield {
+                    "event": "encounter_started",
+                    "data": json.dumps({"enemy": en_res})
+                }
+
+            elif event_type == "enemy_attack":
+                atk = parsed_event["attack"]
+                atk_res = resolve_enemy_attack(
+                    character=character,
+                    attacker=atk.get("attacker", "Enemy"),
+                    attack_bonus=int(atk.get("attack_bonus", 3)),
+                    damage_formula=atk.get("damage", "1d6+1"),
+                    damage_type=atk.get("damage_type", "physical"),
+                )
+                await state_manager.save_character(character)
+                yield {
+                    "event": "enemy_attack_resolved",
+                    "data": json.dumps({
+                        "attack": atk_res,
+                        "character": character.model_dump(),
+                    })
+                }
+
+            elif event_type == "player_damage":
+                haz = parsed_event["damage"]
+                dmg_roll = roll_dice(haz.get("formula", "1d6"))
+                dmg_total = max(1, dmg_roll["total"])
+                dmg_res = apply_damage(character, dmg_total)
+                await state_manager.save_character(character)
+                yield {
+                    "event": "player_damaged",
+                    "data": json.dumps({
+                        "hazard": {
+                            "damage_total": dmg_total,
+                            "damage_type": haz.get("damage_type", "physical"),
+                            "formula": dmg_roll["notation"],
+                            "reason": haz.get("reason", "Environmental Hazard"),
+                            "resolution": dmg_res,
+                        },
                         "character": character.model_dump(),
                     })
                 }
@@ -474,6 +604,7 @@ async def resolve_check_endpoint(req: CheckResolveRequest, request: Request):
 
     # 2. If it was a successful attack, resolve damage mechanically
     damage_info = None
+    enemy_status = None
     if req.check_type == "attack" and check_result["success"]:
         damage_info = resolve_attack_damage(
             character=character,
@@ -481,6 +612,18 @@ async def resolve_check_endpoint(req: CheckResolveRequest, request: Request):
             is_critical=check_result["roll"]["is_critical_success"]
         )
         check_result["mechanical_summary"] += f" | Damage Dealt: {damage_info['summary']}"
+
+        # Apply damage to active enemy
+        enemy_status = await lore_manager.damage_enemy(
+            target_name=req.player_action or req.target or "",
+            damage_amount=damage_info["damage_total"]
+        )
+        if enemy_status.get("found"):
+            e = enemy_status["enemy"]
+            if enemy_status.get("defeated"):
+                check_result["mechanical_summary"] += f" | [ENEMY DEFEATED: {e['name']} reduced to 0 HP]"
+            else:
+                check_result["mechanical_summary"] += f" | [ENEMY STATUS: {e['name']} takes {damage_info['damage_total']} {damage_info['damage_type']} damage (HP: {e['current_hp']}/{e['max_hp']})]"
 
     # 3. Assemble prompt with mechanical resolution
     targeted_lore = await lore_manager.format_targeted_context()
@@ -505,6 +648,7 @@ async def resolve_check_endpoint(req: CheckResolveRequest, request: Request):
             "data": json.dumps({
                 "check_result": check_result,
                 "damage_info": damage_info,
+                "enemy_status": enemy_status if (req.check_type == "attack" and check_result["success"]) else None,
             })
         }
 
@@ -551,6 +695,18 @@ async def resolve_check_endpoint(req: CheckResolveRequest, request: Request):
                         "character": char.model_dump(),
                     })
                 }
+            elif parsed_event["type"] == "spell_learned":
+                spell_info = parsed_event["spell"]
+                spell_name = spell_info.get("name", "Mysterious Spell").strip()
+                await state_manager.add_known_spell(spell_name)
+                char = await state_manager.get_character()
+                yield {
+                    "event": "spell_learned",
+                    "data": json.dumps({
+                        "spell": spell_info,
+                        "character": char.model_dump(),
+                    })
+                }
             elif parsed_event["type"] == "level_up":
                 lvl_info = parsed_event["level_up"]
                 lvl_num = int(lvl_info.get("level", character.level + 1))
@@ -564,6 +720,102 @@ async def resolve_check_endpoint(req: CheckResolveRequest, request: Request):
                         "character": character.model_dump(),
                     })
                 }
+
+            elif parsed_event["type"] == "location_changed":
+                loc_data = parsed_event["location"]
+                await lore_manager.set_current_location(
+                    name=loc_data["name"],
+                    description=loc_data.get("description", ""),
+                    threat_level=loc_data.get("threat_level", "Moderate")
+                )
+                await chronicle_manager.append_milestone(
+                    f"Location Discovery: Arrived at {loc_data['name']} ({loc_data.get('threat_level', 'Moderate')})"
+                )
+                active_loc = await lore_manager.get_current_location()
+                yield {
+                    "event": "location_changed",
+                    "data": json.dumps({"location": active_loc or loc_data})
+                }
+
+            elif parsed_event["type"] == "npc_updated":
+                npc_data = parsed_event["npc"]
+                updated_npc = await lore_manager.update_npc(
+                    name=npc_data["name"],
+                    role=npc_data.get("role", ""),
+                    attitude=npc_data.get("attitude", "neutral"),
+                    note=npc_data.get("note", "")
+                )
+                yield {
+                    "event": "npc_updated",
+                    "data": json.dumps({"npc": updated_npc})
+                }
+
+            elif parsed_event["type"] == "story_progress":
+                prog = parsed_event["progress"]
+                res = await lore_manager.advance_story_progress(
+                    act=prog.get("act"),
+                    tension_delta=prog.get("tension_delta", 0),
+                    milestone=prog.get("milestone", "")
+                )
+                if prog.get("milestone"):
+                    await chronicle_manager.append_milestone(f"Story Milestone: {prog['milestone']}")
+                yield {
+                    "event": "story_progress",
+                    "data": json.dumps({"progress": res})
+                }
+
+            elif parsed_event["type"] == "encounter_started":
+                enemy = parsed_event["enemy"]
+                en_res = await lore_manager.add_or_update_enemy(
+                    name=enemy["name"],
+                    hp=enemy.get("hp", 20),
+                    ac=enemy.get("ac", 12),
+                    attack_bonus=enemy.get("attack_bonus", 3),
+                    damage_formula=enemy.get("damage", "1d6+1")
+                )
+                yield {
+                    "event": "encounter_started",
+                    "data": json.dumps({"enemy": en_res})
+                }
+
+            elif parsed_event["type"] == "enemy_attack":
+                atk = parsed_event["attack"]
+                atk_res = resolve_enemy_attack(
+                    character=character,
+                    attacker=atk.get("attacker", "Enemy"),
+                    attack_bonus=int(atk.get("attack_bonus", 3)),
+                    damage_formula=atk.get("damage", "1d6+1"),
+                    damage_type=atk.get("damage_type", "physical"),
+                )
+                await state_manager.save_character(character)
+                yield {
+                    "event": "enemy_attack_resolved",
+                    "data": json.dumps({
+                        "attack": atk_res,
+                        "character": character.model_dump(),
+                    })
+                }
+
+            elif parsed_event["type"] == "player_damage":
+                haz = parsed_event["damage"]
+                dmg_roll = roll_dice(haz.get("formula", "1d6"))
+                dmg_total = max(1, dmg_roll["total"])
+                dmg_res = apply_damage(character, dmg_total)
+                await state_manager.save_character(character)
+                yield {
+                    "event": "player_damaged",
+                    "data": json.dumps({
+                        "hazard": {
+                            "damage_total": dmg_total,
+                            "damage_type": haz.get("damage_type", "physical"),
+                            "formula": dmg_roll["notation"],
+                            "reason": haz.get("reason", "Environmental Hazard"),
+                            "resolution": dmg_res,
+                        },
+                        "character": character.model_dump(),
+                    })
+                }
+
             elif parsed_event["type"] == "check_required":
                 check_info = parsed_event["check"]
                 res = resolve_check(
@@ -648,6 +900,57 @@ async def get_compendium_items():
 async def get_compendium_spells():
     """Returns the catalog of 5e spells."""
     return compendium_manager.get_all_spells()
+
+
+@app.post("/api/game/character/spells/learn")
+async def learn_spell_endpoint(req: SpellLearnRequest):
+    """
+    Validates spell against 5e class and spell slot constraints, then learns/prepares it.
+    """
+    char = await state_manager.get_character()
+    valid, msg, spell_obj = compendium_manager.can_character_learn_spell(
+        character=char,
+        spell_name=req.spell_name,
+        bypass_class_limit=req.bypass_class_limit
+    )
+    if not valid:
+        raise HTTPException(status_code=400, detail=msg)
+
+    spell_canonical_name = spell_obj["name"] if spell_obj else req.spell_name
+    added = await state_manager.add_known_spell(spell_canonical_name)
+    char = await state_manager.get_character()
+    return {
+        "success": True,
+        "added": added,
+        "spell": spell_obj,
+        "message": f"Prepared {spell_canonical_name}.",
+        "character": char.model_dump(),
+    }
+
+
+@app.post("/api/game/character/spells/remove")
+async def remove_spell_endpoint(req: SpellRemoveRequest):
+    """Removes a spell from the prepared/known spell list."""
+    removed = await state_manager.remove_known_spell(req.spell_name)
+    char = await state_manager.get_character()
+    return {
+        "success": True,
+        "removed": removed,
+        "message": f"Unprepared {req.spell_name}.",
+        "character": char.model_dump(),
+    }
+
+
+@app.post("/api/game/character/spells/set")
+async def set_spells_endpoint(req: SpellSetRequest):
+    """Sets the full list of prepared/known spells."""
+    spells = await state_manager.set_known_spells(req.spells)
+    char = await state_manager.get_character()
+    return {
+        "success": True,
+        "known_spells": spells,
+        "character": char.model_dump(),
+    }
 
 
 @app.post("/api/compendium/grant-item")
@@ -775,6 +1078,29 @@ async def create_campaign_endpoint(req: CampaignCreationRequest):
     race_key = req.character_race if req.character_race in RACE_TRAITS_5E else "Human"
     race_data = RACE_TRAITS_5E.get(race_key, RACE_TRAITS_5E["Human"])
 
+    # Initial known spells configuration based on custom_spells or 5e class defaults
+    if req.custom_spells is not None:
+        initial_spells = [s.strip() for s in req.custom_spells if s.strip()]
+    else:
+        if "wizard" in cls_lower:
+            initial_spells = ["Fire Bolt", "Mage Hand", "Magic Missile", "Shield"]
+        elif "sorcerer" in cls_lower:
+            initial_spells = ["Fire Bolt", "Ray of Frost", "Burning Hands", "Shield"]
+        elif "cleric" in cls_lower:
+            initial_spells = ["Sacred Flame", "Guidance", "Cure Wounds", "Bless"]
+        elif "druid" in cls_lower:
+            initial_spells = ["Thorn Whip", "Guidance", "Healing Word", "Entangle"]
+        elif "bard" in cls_lower:
+            initial_spells = ["Vicious Mockery", "Mage Hand", "Dissonant Whispers", "Healing Word"]
+        elif "warlock" in cls_lower:
+            initial_spells = ["Eldritch Blast", "Minor Illusion", "Hex"]
+        elif "paladin" in cls_lower and level >= 2:
+            initial_spells = ["Bless", "Cure Wounds"]
+        elif "ranger" in cls_lower and level >= 2:
+            initial_spells = ["Hunter's Mark", "Cure Wounds"]
+        else:
+            initial_spells = []
+
     new_char = Character(
         name=req.character_name,
         character_class=req.character_class,
@@ -803,6 +1129,7 @@ async def create_campaign_endpoint(req: CampaignCreationRequest):
         hit_die_type=hit_die,
         inventory=items,
         spell_slots=spell_slots,
+        known_spells=initial_spells,
     )
 
     # 3. Save character to Tier 1 persistence

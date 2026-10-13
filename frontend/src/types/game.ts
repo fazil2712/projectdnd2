@@ -142,6 +142,61 @@ export interface ModelInfo {
   is_active: boolean;
 }
 
+export interface EnemyData {
+  name: string;
+  current_hp: number;
+  max_hp: number;
+  ac: number;
+  attack_bonus: number;
+  damage_formula: string;
+}
+
+export interface EnemyAttackData {
+  attacker: string;
+  attack_bonus: number;
+  target_ac: number;
+  roll: RollResult;
+  hit: boolean;
+  is_critical_hit: boolean;
+  is_critical_miss: boolean;
+  damage_total: number;
+  damage_type: string;
+  damage_breakdown?: string;
+  summary: string;
+  current_hp: number;
+  max_hp: number;
+  is_unconscious: boolean;
+}
+
+export interface PlayerDamageData {
+  amount: number;
+  damage_type: string;
+  reason: string;
+  current_hp: number;
+  max_hp: number;
+  temp_hp: number;
+  is_unconscious: boolean;
+}
+
+export interface StoryProgressData {
+  act: number;
+  tension_clock: number;
+  milestone?: string;
+}
+
+export interface LocationData {
+  name: string;
+  description: string;
+  threat_level: string;
+}
+
+export interface NPCData {
+  name: string;
+  role: string;
+  attitude: string;
+  note: string;
+}
+
 export interface NarrativeEntry {
   id: string;
   role: 'player' | 'dm' | 'system' | 'rejection';
@@ -151,5 +206,29 @@ export interface NarrativeEntry {
     check?: CheckRequestData;
     roll?: CheckResolution;
     damage?: DamageResolution;
+    enemy_attack?: EnemyAttackData;
+    player_damage?: PlayerDamageData;
+    encounter?: EnemyData;
+    location?: LocationData;
+    story_progress?: StoryProgressData;
+    npc?: NPCData;
   };
 }
+
+export interface SpellCatalogItem {
+  name: string;
+  level: number;
+  school: string;
+  classes?: string[];
+  casting_time?: string;
+  range?: string;
+  components?: string;
+  duration?: string;
+  damage?: string;
+  healing?: string;
+  save?: string;
+  description: string;
+}
+
+export type SpellsCatalog = Record<string, SpellCatalogItem[]>;
+

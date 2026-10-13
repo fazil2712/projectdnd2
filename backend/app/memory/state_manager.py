@@ -116,6 +116,34 @@ class StateManager:
                 return {"level": level, "used": slot_level.used_slots, "max": slot_level.max_slots}
             return {"level": level, "used": 0, "max": 0}
 
+    async def add_known_spell(self, spell_name: str) -> bool:
+        """Adds a spell to the character's prepared / known spell list."""
+        async with self._lock:
+            clean_name = spell_name.strip()
+            if not any(s.lower() == clean_name.lower() for s in self._character.known_spells):
+                self._character.known_spells.append(clean_name)
+                self._save_sync()
+                return True
+            return False
+
+    async def remove_known_spell(self, spell_name: str) -> bool:
+        """Removes a spell from the character's prepared / known spell list."""
+        async with self._lock:
+            clean_name = spell_name.strip().lower()
+            original_len = len(self._character.known_spells)
+            self._character.known_spells = [s for s in self._character.known_spells if s.lower() != clean_name]
+            if len(self._character.known_spells) < original_len:
+                self._save_sync()
+                return True
+            return False
+
+    async def set_known_spells(self, spells: list) -> list:
+        """Sets the character's prepared / known spell list."""
+        async with self._lock:
+            self._character.known_spells = [s.strip() for s in spells if s and s.strip()]
+            self._save_sync()
+            return self._character.known_spells
+
     # Pending Check persistence
     async def get_pending_check(self) -> Optional[Dict[str, Any]]:
         async with self._lock:

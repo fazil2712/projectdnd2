@@ -82,13 +82,78 @@ class CompendiumManager:
             with open(SPELLS_CATALOG_FILE, "r", encoding="utf-8") as f:
                 self._spells_cache = json.load(f)
         else:
-            self._spells_cache = {"cantrips": [], "level_1": [], "level_2": [], "level_3": [], "high_level_staples": [], "custom_campaign_spells": []}
-
-    def get_all_items(self) -> Dict[str, Any]:
-        return self._items_cache
+            self._spells_cache = {
+                "cantrips": [],
+                "level_1": [],
+                "level_2": [],
+                "level_3": [],
+                "level_4": [],
+                "level_5": [],
+                "level_6": [],
+                "level_7": [],
+                "level_8": [],
+                "level_9": [],
+                "custom_campaign_spells": []
+            }
 
     def get_all_spells(self) -> Dict[str, Any]:
         return self._spells_cache
+
+    def find_spell_in_catalog(self, query: str) -> Optional[Dict[str, Any]]:
+        clean_q = normalize_identifier(query)
+        for cat, spell_list in self._spells_cache.items():
+            if isinstance(spell_list, list):
+                for spell in spell_list:
+                    if normalize_identifier(spell.get("name", "")) == clean_q:
+                        return spell
+        for cat, spell_list in self._spells_cache.items():
+            if isinstance(spell_list, list):
+                for spell in spell_list:
+                    if clean_q in normalize_identifier(spell.get("name", "")):
+                        return spell
+        return None
+
+    def can_character_learn_spell(
+        self,
+        character: Character,
+        spell_name: str,
+        bypass_class_limit: bool = False
+    ) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+        """
+        Validates if a character meets 5e rules to learn/prepare a spell:
+        1. Spell exists in catalog.
+        2. Character has spell slots for the spell level (cantrips level 0 are always castable).
+        3. Character class is on the spell's allowed class list (unless bypass_class_limit=True).
+        """
+        spell = self.find_spell_in_catalog(spell_name)
+        if not spell:
+            return False, f"Spell '{spell_name}' not found in the 5e compendium.", None
+
+        # Check if already learned/prepared
+        if any(spell.get("name", "").lower() == s.lower() for s in (character.known_spells or [])):
+            return False, f"Character already knows or has prepared '{spell['name']}'.", spell
+
+        spell_lvl = int(spell.get("level", 0))
+
+        # Check spell slot constraint (cantrips are level 0):
+        if spell_lvl > 0 and not bypass_class_limit:
+            attr = f"level_{spell_lvl}"
+            slot_obj = getattr(character.spell_slots, attr, None)
+            if not slot_obj or slot_obj.max_slots <= 0:
+                return False, f"Your character has no Level {spell_lvl} spell slots to cast '{spell['name']}'.", spell
+
+        # Check class constraint:
+        if not bypass_class_limit:
+            cls_name = (character.character_class or "Fighter").title()
+            allowed_classes = [c.title() for c in spell.get("classes", [])]
+            if allowed_classes and not any(c.lower() in cls_name.lower() for c in allowed_classes):
+                # Allow Arcane Trickster Rogues and Eldritch Knight Fighters to learn Wizard spells
+                if ("rogue" in cls_name.lower() or "fighter" in cls_name.lower()) and "Wizard" in allowed_classes:
+                    pass
+                else:
+                    return False, f"'{spell['name']}' is not on the {cls_name} spell list (Available to: {', '.join(allowed_classes)}).", spell
+
+        return True, "Valid", spell
 
     def find_item_in_catalog(self, query: str) -> Optional[Dict[str, Any]]:
         clean_q = normalize_identifier(query)
@@ -302,3 +367,18 @@ class CompendiumManager:
 
 # Global instance
 compendium_manager = CompendiumManager()
+
+
+def can_character_learn_spell(
+    character: Character,
+    spell_name: str,
+    bypass_class_limit: bool = False
+) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """Module-level wrapper for compendium_manager.can_character_learn_spell."""
+    return compendium_manager.can_character_learn_spell(character, spell_name, bypass_class_limit)
+
+
+def find_spell_in_catalog(query: str) -> Optional[Dict[str, Any]]:
+    """Module-level wrapper for compendium_manager.find_spell_in_catalog."""
+    return compendium_manager.find_spell_in_catalog(query)
+

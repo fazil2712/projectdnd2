@@ -35,11 +35,46 @@ class StreamParser:
         r'(?:```(?:xml)?\s*|`\s*)?<LEVEL_UP\s+([^>]*?)(?:/>|>(?:[\s\S]*?</LEVEL_UP>)?)(?:\s*```|\s*`)?',
         re.IGNORECASE
     )
+    SPELL_LEARN_REGEX = re.compile(
+        r'(?:```(?:xml)?\s*|`\s*)?<SPELL_LEARN\s+([^>]*?)(?:/>|>(?:[\s\S]*?</SPELL_LEARN>)?)(?:\s*```|\s*`)?',
+        re.IGNORECASE
+    )
+    LOCATION_CHANGE_REGEX = re.compile(
+        r'(?:```(?:xml)?\s*|`\s*)?<LOCATION_CHANGE\s+([^>]*?)(?:/>|>(?:[\s\S]*?</LOCATION_CHANGE>)?)(?:\s*```|\s*`)?',
+        re.IGNORECASE
+    )
+    NPC_UPDATE_REGEX = re.compile(
+        r'(?:```(?:xml)?\s*|`\s*)?<NPC_UPDATE\s+([^>]*?)(?:/>|>(?:[\s\S]*?</NPC_UPDATE>)?)(?:\s*```|\s*`)?',
+        re.IGNORECASE
+    )
+    STORY_PROGRESS_REGEX = re.compile(
+        r'(?:```(?:xml)?\s*|`\s*)?<STORY_PROGRESS\s+([^>]*?)(?:/>|>(?:[\s\S]*?</STORY_PROGRESS>)?)(?:\s*```|\s*`)?',
+        re.IGNORECASE
+    )
+    ENCOUNTER_START_REGEX = re.compile(
+        r'(?:```(?:xml)?\s*|`\s*)?<ENCOUNTER_START\s+([^>]*?)(?:/>|>(?:[\s\S]*?</ENCOUNTER_START>)?)(?:\s*```|\s*`)?',
+        re.IGNORECASE
+    )
+    ENEMY_ATTACK_REGEX = re.compile(
+        r'(?:```(?:xml)?\s*|`\s*)?<ENEMY_ATTACK\s+([^>]*?)(?:/>|>(?:[\s\S]*?</ENEMY_ATTACK>)?)(?:\s*```|\s*`)?',
+        re.IGNORECASE
+    )
+    PLAYER_DAMAGE_REGEX = re.compile(
+        r'(?:```(?:xml)?\s*|`\s*)?<PLAYER_DAMAGE\s+([^>]*?)(?:/>|>(?:[\s\S]*?</PLAYER_DAMAGE>)?)(?:\s*```|\s*`)?',
+        re.IGNORECASE
+    )
 
     TAG_PATTERNS = [
         ("item_grant", ITEM_GRANT_REGEX),
         ("item_consume", ITEM_CONSUME_REGEX),
+        ("spell_learn", SPELL_LEARN_REGEX),
         ("level_up", LEVEL_UP_REGEX),
+        ("location_change", LOCATION_CHANGE_REGEX),
+        ("npc_update", NPC_UPDATE_REGEX),
+        ("story_progress", STORY_PROGRESS_REGEX),
+        ("encounter_start", ENCOUNTER_START_REGEX),
+        ("enemy_attack", ENEMY_ATTACK_REGEX),
+        ("player_damage", PLAYER_DAMAGE_REGEX),
         ("action_reject", ACTION_REJECT_REGEX),
         ("check_request", CHECK_REQUEST_REGEX),
     ]
@@ -51,7 +86,14 @@ class StreamParser:
         "<action_reject",
         "<item_consume",
         "<item_grant",
+        "<spell_learn",
         "<level_up",
+        "<location_change",
+        "<npc_update",
+        "<story_progress",
+        "<encounter_start",
+        "<enemy_attack",
+        "<player_damage",
     )
 
     def __init__(self):
@@ -61,6 +103,7 @@ class StreamParser:
         self.rejection_triggered: Optional[Dict[str, Any]] = None
         self.items_granted: list = []
         self.items_consumed: list = []
+        self.spells_learned: list = []
         self.level_ups: list = []
 
     def _parse_attributes(self, attr_string: str) -> Dict[str, str]:
@@ -120,9 +163,125 @@ class StreamParser:
                 elif tag_type == "item_consume":
                     self.items_consumed.append(attrs)
                     yield {"type": "item_consumed", "consumption": attrs}
+                elif tag_type == "spell_learn":
+                    if "level" in attrs:
+                        try:
+                            attrs["level"] = int(re.sub(r"[^\d]", "", str(attrs["level"])) or 0)
+                        except (ValueError, TypeError):
+                            attrs["level"] = 0
+                    self.spells_learned.append(attrs)
+                    yield {"type": "spell_learned", "spell": attrs, "reason": attrs.get("reason", "")}
                 elif tag_type == "level_up":
+                    if "level" in attrs:
+                        try:
+                            attrs["level"] = int(re.sub(r"[^\d]", "", str(attrs["level"])) or 1)
+                        except (ValueError, TypeError):
+                            attrs["level"] = 1
                     self.level_ups.append(attrs)
                     yield {"type": "level_up", "level_up": attrs}
+                elif tag_type == "location_change":
+                    name = attrs.get("name", "Unknown Area").strip()
+                    desc = attrs.get("description", "").strip()
+                    threat = attrs.get("threat_level", "Moderate").strip()
+                    yield {
+                        "type": "location_changed",
+                        "location": {
+                            "name": name,
+                            "description": desc,
+                            "threat_level": threat,
+                        }
+                    }
+                elif tag_type == "npc_update":
+                    name = attrs.get("name", "Unknown NPC").strip()
+                    role = attrs.get("role", "").strip()
+                    attitude = attrs.get("attitude", attrs.get("disposition", "neutral")).strip()
+                    note = attrs.get("note", attrs.get("notes", "")).strip()
+                    yield {
+                        "type": "npc_updated",
+                        "npc": {
+                            "name": name,
+                            "role": role,
+                            "attitude": attitude,
+                            "note": note,
+                        }
+                    }
+                elif tag_type == "story_progress":
+                    raw_act = attrs.get("act")
+                    act = None
+                    if raw_act:
+                        try:
+                            act = int(re.sub(r"[^\d]", "", str(raw_act)))
+                        except (ValueError, TypeError):
+                            act = None
+                    raw_tension = attrs.get("tension_delta", "0")
+                    try:
+                        tension_delta = int(re.sub(r"[^\d\-]", "", str(raw_tension)) or 0)
+                    except (ValueError, TypeError):
+                        tension_delta = 0
+                    milestone = attrs.get("milestone", "").strip()
+                    yield {
+                        "type": "story_progress",
+                        "progress": {
+                            "act": act,
+                            "tension_delta": tension_delta,
+                            "milestone": milestone,
+                        }
+                    }
+                elif tag_type == "encounter_start":
+                    name = attrs.get("name", "Hostile Enemy").strip()
+                    try:
+                        hp = int(re.sub(r"[^\d]", "", str(attrs.get("hp", "20"))) or 20)
+                    except (ValueError, TypeError):
+                        hp = 20
+                    try:
+                        ac = int(re.sub(r"[^\d]", "", str(attrs.get("ac", "12"))) or 12)
+                    except (ValueError, TypeError):
+                        ac = 12
+                    try:
+                        attack_bonus = int(re.sub(r"[^\d\-]", "", str(attrs.get("attack_bonus", "3"))) or 3)
+                    except (ValueError, TypeError):
+                        attack_bonus = 3
+                    damage = attrs.get("damage", "1d6+1").strip()
+                    enemy_data = {
+                        "name": name,
+                        "hp": hp,
+                        "ac": ac,
+                        "attack_bonus": attack_bonus,
+                        "damage": damage,
+                    }
+                    yield {"type": "encounter_started", "enemy": enemy_data}
+                elif tag_type == "enemy_attack":
+                    attacker = attrs.get("attacker", attrs.get("name", "Enemy")).strip()
+                    raw_bonus = attrs.get("attack_bonus", "3")
+                    try:
+                        attack_bonus = int(re.sub(r"[^\d\-]", "", str(raw_bonus)) or 3)
+                    except (ValueError, TypeError):
+                        attack_bonus = 3
+                    damage = attrs.get("damage", "1d6+1").strip()
+                    damage_type = attrs.get("damage_type", "physical").strip()
+                    reason = attrs.get("reason", "attacks aggressively").strip()
+                    yield {
+                        "type": "enemy_attack",
+                        "attack": {
+                            "attacker": attacker,
+                            "attack_bonus": attack_bonus,
+                            "damage": damage,
+                            "damage_type": damage_type,
+                            "reason": reason,
+                        }
+                    }
+                elif tag_type == "player_damage":
+                    formula = attrs.get("formula", attrs.get("damage", "1d6")).strip()
+                    damage_type = attrs.get("damage_type", "physical").strip()
+                    reason = attrs.get("reason", "environmental hazard").strip()
+                    yield {
+                        "type": "player_damage",
+                        "damage": {
+                            "formula": formula,
+                            "damage_type": damage_type,
+                            "reason": reason,
+                        }
+                    }
                 elif tag_type == "action_reject":
                     reason = attrs.get("reason", "Action violates fictional boundaries or rules.")
                     self.rejection_triggered = {"reason": reason}

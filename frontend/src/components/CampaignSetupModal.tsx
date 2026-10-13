@@ -1,5 +1,37 @@
-import React, { useState } from 'react';
-import { Sparkles, Compass, Shield, User, X, Dices, Wand2, BookOpen, AlertCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Sparkles,
+  Compass,
+  Shield,
+  User,
+  X,
+  Dices,
+  Wand2,
+  BookOpen,
+  AlertCircle,
+  Loader2,
+  Search,
+  Check,
+  Trash2,
+  RotateCcw,
+  Filter,
+} from 'lucide-react';
+import { SpellCatalogItem, SpellsCatalog } from '../types/game';
+
+const CLASS_DEFAULT_SPELLS: Record<string, string[]> = {
+  Wizard: ['Fire Bolt', 'Mage Hand', 'Magic Missile', 'Shield'],
+  Sorcerer: ['Fire Bolt', 'Ray of Frost', 'Burning Hands', 'Shield'],
+  Cleric: ['Sacred Flame', 'Guidance', 'Cure Wounds', 'Bless'],
+  Druid: ['Thorn Whip', 'Guidance', 'Healing Word', 'Entangle'],
+  Bard: ['Vicious Mockery', 'Mage Hand', 'Dissonant Whispers', 'Healing Word'],
+  Warlock: ['Eldritch Blast', 'Minor Illusion', 'Hex', 'Armor of Agathys'],
+  Paladin: ['Bless', 'Cure Wounds'],
+  Ranger: ["Hunter's Mark", 'Cure Wounds'],
+  Fighter: [],
+  Barbarian: [],
+  Rogue: [],
+  Monk: [],
+};
 
 const GROUNDED_NAMES_GENERAL = [
   'Dunstan Clayhanger',
@@ -137,7 +169,32 @@ export const CampaignSetupModal: React.FC<CampaignSetupModalProps> = ({
   onClose,
   onCampaignCreated,
 }) => {
-  const [tab, setTab] = useState<'world' | 'character'>('world');
+  const [tab, setTab] = useState<'world' | 'character' | 'spells'>('world');
+  const [customSpells, setCustomSpells] = useState<string[]>([]);
+  const [catalogSpells, setCatalogSpells] = useState<SpellCatalogItem[]>([]);
+  const [spellSearch, setSpellSearch] = useState<string>('');
+  const [spellLevelFilter, setSpellLevelFilter] = useState<number | 'all'>('all');
+  const [onlyClassSpells, setOnlyClassSpells] = useState<boolean>(true);
+
+  // Fetch spells catalog when modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchSpells = async () => {
+      try {
+        const res = await fetch('/api/compendium/spells');
+        if (res.ok) {
+          const data: SpellsCatalog = await res.json();
+          const all: SpellCatalogItem[] = [];
+          Object.values(data).forEach((list) => {
+            if (Array.isArray(list)) all.push(...list);
+          });
+          all.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+          setCatalogSpells(all);
+        }
+      } catch (e) {}
+    };
+    fetchSpells();
+  }, [isOpen]);
 
   // World Setting Inputs
   const [worldSetting, setWorldSetting] = useState(QUICK_SETTINGS[0].setting);
@@ -163,6 +220,28 @@ export const CampaignSetupModal: React.FC<CampaignSetupModalProps> = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+
+  const filteredCatalogSpells = useMemo(() => {
+    return catalogSpells.filter((sp) => {
+      if (spellSearch && !sp.name.toLowerCase().includes(spellSearch.toLowerCase())) {
+        return false;
+      }
+      if (spellLevelFilter !== 'all' && sp.level !== spellLevelFilter) {
+        return false;
+      }
+      if (onlyClassSpells) {
+        const cls = charClass.toLowerCase();
+        const allowed = (sp.classes || []).map((c) => c.toLowerCase());
+        const hasDirect = allowed.includes(cls);
+        const hasWizardFallback =
+          (cls === 'rogue' || cls === 'fighter') && allowed.includes('wizard');
+        if (!hasDirect && !hasWizardFallback) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [catalogSpells, spellSearch, spellLevelFilter, onlyClassSpells, charClass]);
 
   if (!isOpen) return null;
 
@@ -310,6 +389,9 @@ export const CampaignSetupModal: React.FC<CampaignSetupModalProps> = ({
   const handleClassChange = (newClass: string) => {
     setCharClass(newClass);
     handleApplyStandardArray(newClass);
+    if (CLASS_DEFAULT_SPELLS[newClass]) {
+      setCustomSpells([...CLASS_DEFAULT_SPELLS[newClass]]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -335,6 +417,7 @@ export const CampaignSetupModal: React.FC<CampaignSetupModalProps> = ({
         intelligence: clampStat(intScore),
         wisdom: clampStat(wis),
         charisma: clampStat(cha),
+        custom_spells: customSpells.length > 0 ? customSpells : undefined,
       };
 
       const res = await fetch('/api/game/create-campaign', {
@@ -478,6 +561,42 @@ export const CampaignSetupModal: React.FC<CampaignSetupModalProps> = ({
           >
             <User size={16} />
             2. Character Sheet (D&amp;D 5e)
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('spells')}
+            style={{
+              flex: 1,
+              padding: '0.75rem',
+              background: tab === 'spells' ? 'var(--bg-card)' : 'transparent',
+              border: 'none',
+              borderBottom: tab === 'spells' ? '2px solid var(--accent-gold)' : '2px solid transparent',
+              color: tab === 'spells' ? 'var(--accent-gold)' : 'var(--text-secondary)',
+              fontWeight: tab === 'spells' ? 600 : 400,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              fontSize: '0.875rem',
+            }}
+          >
+            <Sparkles size={16} />
+            3. Spells (Optional)
+            {customSpells.length > 0 && (
+              <span
+                style={{
+                  fontSize: '10px',
+                  backgroundColor: 'var(--accent-gold-dim)',
+                  color: 'var(--accent-gold)',
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                }}
+              >
+                {customSpells.length}
+              </span>
+            )}
           </button>
         </div>
 
@@ -1062,6 +1181,309 @@ export const CampaignSetupModal: React.FC<CampaignSetupModalProps> = ({
                     })}
                   </div>
                 </div>
+
+                {/* Link to Spells Tab */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.75rem 1rem',
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Sparkles size={16} style={{ color: 'var(--accent-gold)' }} />
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                      Starting Spells: <strong style={{ color: 'var(--accent-gold)' }}>{customSpells.length} configured</strong>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTab('spells')}
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: '1px solid var(--border-gold)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--accent-gold)',
+                      padding: '0.35rem 0.75rem',
+                      fontSize: '0.75rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Customize Spells &rarr;
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: Spells Selection */}
+            {tab === 'spells' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div
+                  style={{
+                    backgroundColor: 'rgba(200, 155, 60, 0.08)',
+                    border: '1px solid var(--border-gold)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '0.75rem 1rem',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <Sparkles size={18} style={{ color: 'var(--accent-gold)', marginTop: '2px', flexShrink: 0 }} />
+                  <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    <strong style={{ color: 'var(--accent-gold)' }}>Starting Spells for {charClass} (Level {numericLevel}): </strong>
+                    Select cantrips and prepared spells for your campaign. By default, authentic 5e spell lists for {charClass} are displayed, or unlock all 5e spells to choose homebrew abilities.
+                  </div>
+                </div>
+
+                {/* Filter and Search Bar */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', flex: 1, minWidth: '220px' }}>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input
+                        type="text"
+                        placeholder="Search spells by name..."
+                        value={spellSearch}
+                        onChange={(e) => setSpellSearch(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.45rem 0.75rem 0.45rem 2rem',
+                          backgroundColor: 'var(--bg-card)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: '0.8rem',
+                          color: 'var(--text-primary)',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => setOnlyClassSpells(!onlyClassSpells)}
+                      style={{
+                        padding: '0.4rem 0.75rem',
+                        fontSize: '0.75rem',
+                        borderRadius: 'var(--radius-sm)',
+                        border: `1px solid ${onlyClassSpells ? 'var(--accent-gold)' : 'var(--border-subtle)'}`,
+                        backgroundColor: onlyClassSpells ? 'var(--accent-gold-dim)' : 'var(--bg-card)',
+                        color: onlyClassSpells ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                      }}
+                    >
+                      <Filter size={12} />
+                      {onlyClassSpells ? `${charClass} List Only` : 'All 5e Spells (Unlocked)'}
+                    </button>
+                    {CLASS_DEFAULT_SPELLS[charClass] && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomSpells([...(CLASS_DEFAULT_SPELLS[charClass] || [])])}
+                        style={{
+                          padding: '0.4rem 0.65rem',
+                          fontSize: '0.75rem',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border-subtle)',
+                          backgroundColor: 'var(--bg-card)',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                        }}
+                        title="Reset to class standard starter spells"
+                      >
+                        <RotateCcw size={12} />
+                        Reset
+                      </button>
+                    )}
+                    {customSpells.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomSpells([])}
+                        style={{
+                          padding: '0.4rem 0.65rem',
+                          fontSize: '0.75rem',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border-subtle)',
+                          backgroundColor: 'var(--bg-card)',
+                          color: 'var(--accent-crimson)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                        }}
+                        title="Clear all selected spells"
+                      >
+                        <Trash2 size={12} />
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Level Filter Pills */}
+                <div style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', paddingBottom: '2px' }}>
+                  {(['all', 0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((lvl) => (
+                    <button
+                      key={String(lvl)}
+                      type="button"
+                      onClick={() => setSpellLevelFilter(lvl)}
+                      style={{
+                        padding: '0.25rem 0.55rem',
+                        fontSize: '0.72rem',
+                        borderRadius: 'var(--radius-sm)',
+                        border: `1px solid ${spellLevelFilter === lvl ? 'var(--accent-gold)' : 'var(--border-subtle)'}`,
+                        backgroundColor: spellLevelFilter === lvl ? 'var(--accent-gold-dim)' : 'var(--bg-card)',
+                        color: spellLevelFilter === lvl ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {lvl === 'all' ? 'All Levels' : lvl === 0 ? 'Cantrips' : `Lvl ${lvl}`}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Selected Spells Badge List */}
+                {customSpells.length > 0 && (
+                  <div
+                    style={{
+                      padding: '0.6rem 0.75rem',
+                      backgroundColor: 'var(--bg-card)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      Selected Spells ({customSpells.length}):
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                      {customSpells.map((sName) => (
+                        <span
+                          key={sName}
+                          style={{
+                            fontSize: '0.72rem',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            backgroundColor: 'var(--accent-gold-dim)',
+                            color: 'var(--accent-gold)',
+                            border: '1px solid var(--border-gold)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          ✨ {sName}
+                          <button
+                            type="button"
+                            onClick={() => setCustomSpells(customSpells.filter((n) => n !== sName))}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--accent-gold)',
+                              cursor: 'pointer',
+                              padding: 0,
+                              lineHeight: 1,
+                              display: 'flex',
+                            }}
+                          >
+                            <X size={10} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Spells List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '350px', overflowY: 'auto' }}>
+                  {filteredCatalogSpells.map((spell) => {
+                    const isSelected = customSpells.includes(spell.name);
+                    return (
+                      <div
+                        key={spell.name}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0.6rem 0.85rem',
+                          backgroundColor: isSelected ? 'rgba(200, 155, 60, 0.05)' : 'var(--bg-card)',
+                          borderRadius: 'var(--radius-sm)',
+                          border: `1px solid ${isSelected ? 'var(--border-gold)' : 'var(--border-subtle)'}`,
+                          gap: '0.75rem',
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isSelected ? 'var(--accent-gold)' : 'var(--text-primary)' }}>
+                              {spell.name}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '0.68rem',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                backgroundColor: spell.level === 0 ? 'var(--accent-cyan-dim)' : 'var(--bg-surface)',
+                                color: spell.level === 0 ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                              }}
+                            >
+                              {spell.level === 0 ? 'Cantrip' : `Level ${spell.level}`}
+                            </span>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                              {spell.school}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {spell.casting_time} • {spell.range} {spell.damage ? `• ${spell.damage}` : ''}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setCustomSpells(customSpells.filter((n) => n !== spell.name));
+                            } else {
+                              setCustomSpells([...customSpells, spell.name]);
+                            }
+                          }}
+                          className={isSelected ? 'btn btn-primary' : 'btn btn-secondary'}
+                          style={{
+                            fontSize: '0.75rem',
+                            padding: '4px 10px',
+                            minWidth: '85px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          {isSelected ? (
+                            <>
+                              <Check size={12} /> Selected
+                            </>
+                          ) : (
+                            '+ Select'
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {filteredCatalogSpells.length === 0 && (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.825rem' }}>
+                      No spells found matching the active filters.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1080,7 +1502,11 @@ export const CampaignSetupModal: React.FC<CampaignSetupModalProps> = ({
             }}
           >
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              {tab === 'world' ? 'Step 1 of 2: World & Theme' : 'Step 2 of 2: Character Sheet'}
+              {tab === 'world'
+                ? 'Step 1 of 3: World & Theme'
+                : tab === 'character'
+                ? 'Step 2 of 3: Character Sheet'
+                : 'Step 3 of 3: Spells & Spellbook'}
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -1101,7 +1527,7 @@ export const CampaignSetupModal: React.FC<CampaignSetupModalProps> = ({
                 >
                   Next: Character Sheet &rarr;
                 </button>
-              ) : (
+              ) : tab === 'character' ? (
                 <>
                   <button
                     type="button"
@@ -1117,6 +1543,21 @@ export const CampaignSetupModal: React.FC<CampaignSetupModalProps> = ({
                     }}
                   >
                     &larr; Back to World
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab('spells')}
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: 'var(--accent-gold)',
+                      border: '1px solid var(--border-gold)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '0.6rem 1rem',
+                      fontSize: '0.875rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Next: Spells (Optional) &rarr;
                   </button>
                   <button
                     type="submit"
@@ -1136,7 +1577,45 @@ export const CampaignSetupModal: React.FC<CampaignSetupModalProps> = ({
                     }}
                   >
                     <Sparkles size={16} />
-                    Launch Campaign (AI DM Directs)
+                    Launch Campaign
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setTab('character')}
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '0.6rem 1rem',
+                      fontSize: '0.875rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    &larr; Back to Character
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    style={{
+                      backgroundColor: 'var(--accent-gold)',
+                      color: '#0a0c10',
+                      border: 'none',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '0.6rem 1.5rem',
+                      fontWeight: 600,
+                      fontSize: '0.875rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <Sparkles size={16} />
+                    Launch Campaign ({customSpells.length} Spells)
                   </button>
                 </>
               )}

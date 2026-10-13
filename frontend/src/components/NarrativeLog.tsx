@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { User, Sparkles, AlertOctagon, Compass } from 'lucide-react';
+import { User, Sparkles, AlertOctagon, Compass, MapPin, Users, Bookmark, Info } from 'lucide-react';
 import { NarrativeEntry } from '../types/game';
 import { DiceTray } from './DiceTray';
+import { EnemyAttackCard, HazardDamageCard, EncounterBanner } from './CombatCard';
 
 interface NarrativeLogProps {
   entries: NarrativeEntry[];
@@ -135,10 +136,171 @@ export const NarrativeLog: React.FC<NarrativeLogProps> = ({
           );
         }
 
-        if (entry.role === 'system' && entry.metadata?.roll) {
+        if (entry.metadata?.roll) {
           return (
             <div key={entry.id} className="narrative-entry-anim" style={{ alignSelf: 'stretch' }}>
               <DiceTray resolution={entry.metadata.roll} damage={entry.metadata.damage} />
+            </div>
+          );
+        }
+
+        if (entry.metadata?.enemy_attack) {
+          return (
+            <div key={entry.id} className="narrative-entry-anim" style={{ alignSelf: 'stretch' }}>
+              <EnemyAttackCard attack={entry.metadata.enemy_attack} />
+            </div>
+          );
+        }
+
+        if (entry.metadata?.player_damage) {
+          return (
+            <div key={entry.id} className="narrative-entry-anim" style={{ alignSelf: 'stretch' }}>
+              <HazardDamageCard damage={entry.metadata.player_damage} />
+            </div>
+          );
+        }
+
+        if (entry.metadata?.encounter) {
+          return (
+            <div key={entry.id} className="narrative-entry-anim" style={{ alignSelf: 'stretch' }}>
+              <EncounterBanner enemy={entry.metadata.encounter} />
+            </div>
+          );
+        }
+
+        if (entry.metadata?.location) {
+          return (
+            <div
+              key={entry.id}
+              className="narrative-entry-anim"
+              style={{
+                alignSelf: 'stretch',
+                backgroundColor: 'var(--bg-card)',
+                borderLeft: '3px solid var(--accent-cyan)',
+                borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+                padding: '10px 14px',
+                margin: '8px 0',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-cyan)', marginBottom: '2px' }}>
+                <MapPin size={14} />
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Location Discovered: {entry.metadata.location.name}
+                </span>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    padding: '1px 5px',
+                    borderRadius: '3px',
+                    backgroundColor: 'var(--bg-surface)',
+                    color: 'var(--text-secondary)',
+                    marginLeft: 'auto',
+                  }}
+                >
+                  Threat: {entry.metadata.location.threat_level}
+                </span>
+              </div>
+              {entry.metadata.location.description && (
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  {entry.metadata.location.description}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        if (entry.metadata?.story_progress) {
+          return (
+            <div
+              key={entry.id}
+              className="narrative-entry-anim"
+              style={{
+                alignSelf: 'stretch',
+                backgroundColor: 'var(--bg-card)',
+                borderLeft: '3px solid var(--accent-gold)',
+                borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+                padding: '10px 14px',
+                margin: '8px 0',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-gold)', marginBottom: '2px' }}>
+                <Bookmark size={14} />
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Act {entry.metadata.story_progress.act} Progression · Villain Tension: {entry.metadata.story_progress.tension_clock}/10
+                </span>
+              </div>
+              {entry.metadata.story_progress.milestone && (
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  {entry.metadata.story_progress.milestone}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        if (entry.metadata?.npc) {
+          return (
+            <div
+              key={entry.id}
+              className="narrative-entry-anim"
+              style={{
+                alignSelf: 'stretch',
+                backgroundColor: 'var(--bg-card)',
+                borderLeft: '3px solid var(--accent-cyan)',
+                borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+                padding: '10px 14px',
+                margin: '8px 0',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-cyan)', marginBottom: '2px' }}>
+                <Users size={14} />
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  NPC Noted: {entry.metadata.npc.name} ({entry.metadata.npc.role || 'Inhabitant'})
+                </span>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    padding: '1px 5px',
+                    borderRadius: '3px',
+                    backgroundColor: 'var(--bg-surface)',
+                    color: 'var(--text-secondary)',
+                    textTransform: 'capitalize',
+                    marginLeft: 'auto',
+                  }}
+                >
+                  {entry.metadata.npc.attitude}
+                </span>
+              </div>
+              {entry.metadata.npc.note && (
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  {entry.metadata.npc.note}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        if (entry.role === 'system') {
+          return (
+            <div
+              key={entry.id}
+              className="narrative-entry-anim"
+              style={{
+                alignSelf: 'center',
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '8px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                margin: '6px 0',
+              }}
+            >
+              <Info size={14} color="var(--accent-gold)" />
+              <span>{entry.content}</span>
             </div>
           );
         }

@@ -1,7 +1,7 @@
 # Chronicle of HALP
 
 ## Setting: Shadows over the Sword Coast: The Netherese Cipher (AI-Determined Dynamic Atmosphere)
-- World: standard forgotten realms classic dnd 5e
+- World: standardf forgotten realm classic 5e
 - Narrative Tone Directive: Authentic D&D 5e High Fantasy Adventure. Ancient Netherese ruins, perilous wilderness trails, and high-stakes faction intrigue with visceral danger and tactical realism.
 - Starting Location: The Crag of Whispers - Netherese Excavation Site
 - Location Atmosphere: Rain-slicked grey granite ruins jut from the pine-shrouded ridge of the Sword Mountains. Fallen columns carved with floating Netherese glyphs lie half-buried in brambles, while a collapsed stone stairway descends into a subterranean burial vault.

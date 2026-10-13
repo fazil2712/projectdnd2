@@ -8,7 +8,9 @@ from app.engine.rules import (
     validate_and_consume_spell_slot,
     apply_damage,
     apply_heal,
+    resolve_enemy_attack,
 )
+from app.memory.lore_manager import LoreManager
 from app.llm.parser import StreamParser
 
 
@@ -390,5 +392,311 @@ async def test_chronicle_manager_preserves_full_ui_history(tmp_path):
     recent = await cm.get_recent_turns()
     assert len(recent) == 4
     assert recent[-1]["content"] == "DM response 8"
+
+
+def test_spell_compendium_validation():
+    """Verify 5e class and spell slot constraints in compendium."""
+    from app.engine.compendium import can_character_learn_spell, compendium_manager
+    from app.engine.character import SpellSlots, SpellSlotLevel
+
+    wizard = Character(
+        character_class="Wizard",
+        level=3,
+        spell_slots=SpellSlots(
+            level_1=SpellSlotLevel(max_slots=4, used_slots=0),
+            level_2=SpellSlotLevel(max_slots=2, used_slots=0)
+        ),
+        known_spells=["Fire Bolt", "Magic Missile"]
+    )
+
+    # 1. Wizard learning 2nd level spell (Misty Step) - valid
+    ok, err, spell = can_character_learn_spell(wizard, "Misty Step")
+    assert ok is True
+    assert spell is not None
+    assert spell["name"] == "Misty Step"
+
+    # 2. Duplicate spell check
+    ok, err, _ = can_character_learn_spell(wizard, "Magic Missile")
+    assert ok is False
+    assert "already knows" in err
+
+    # 3. Non-caster (Barbarian with 0 slots) learning 3rd level spell without bypass
+    barbarian = Character(
+        character_class="Barbarian",
+        level=3,
+        spell_slots=SpellSlots(),
+        known_spells=[]
+    )
+    ok, err, _ = can_character_learn_spell(barbarian, "Fireball", bypass_class_limit=False)
+    assert ok is False
+
+    # 4. Non-caster with bypass_class_limit=True (homebrew / magical boon)
+    ok, err, spell = can_character_learn_spell(barbarian, "Fireball", bypass_class_limit=True)
+    assert ok is True
+    assert spell["name"] == "Fireball"
+
+
+@pytest.mark.asyncio
+async def test_stream_parser_spell_learn_tag():
+    """Verify StreamParser detects <SPELL_LEARN .../> tag and yields spell_learned event."""
+    parser = StreamParser()
+
+    async def token_gen():
+        tokens = [
+            "You carefully unfold the parchment. ",
+            '<SPELL_LEARN name="Misty Step" level="2" reason="Arcane scroll study"/>',
+            " The glyphs sear into your memory."
+        ]
+        for t in tokens:
+            yield t
+
+    events = []
+    async for ev in parser.process_token_stream(token_gen()):
+        events.append(ev)
+
+    spell_events = [e for e in events if e.get("type") == "spell_learned"]
+    assert len(spell_events) == 1
+    assert spell_events[0]["spell"]["name"] == "Misty Step"
+    assert spell_events[0]["spell"]["level"] == 2
+    assert spell_events[0]["reason"] == "Arcane scroll study"
+
+
+def test_resolve_enemy_attack_mechanics(monkeypatch):
+    """Verify deterministic enemy attack hits, misses, crits, fumbles, and HP deductions."""
+    char = Character(
+        name="Theron",
+        abilities=AbilityScores(dexterity=14, constitution=14),
+        max_hp=20,
+        current_hp=20,
+        temp_hp=0
+    )
+    # Natural AC without armor: 10 + DEX mod (+2) = 12
+    assert char.armor_class == 12
+
+    # 1. Normal hit: roll raw 10 + 3 = 13 >= AC 12
+    monkeypatch.setattr("app.engine.rules.roll_d20", lambda modifier, **kw: {
+        "raw_rolls": [10],
+        "selected_raw": 10,
+        "modifier": modifier,
+        "total": 10 + modifier,
+        "advantage": False,
+        "disadvantage": False,
+        "is_critical_success": False,
+        "is_critical_failure": False,
+        "notation": f"d20(10)+{modifier}={10+modifier}",
+    })
+    hit_res = resolve_enemy_attack(
+        character=char,
+        attacker="Bugbear",
+        attack_bonus=3,
+        damage_formula="1d4+2",
+        damage_type="slashing"
+    )
+    assert hit_res["hit"] is True
+    assert hit_res["is_critical"] is False
+    assert hit_res["attacker"] == "Bugbear"
+    assert hit_res["damage_total"] >= 3
+    assert char.current_hp < 20
+
+    # 2. Normal miss: roll raw 5 + 2 = 7 < AC 12
+    prev_hp = char.current_hp
+    monkeypatch.setattr("app.engine.rules.roll_d20", lambda modifier, **kw: {
+        "raw_rolls": [5],
+        "selected_raw": 5,
+        "modifier": modifier,
+        "total": 5 + modifier,
+        "advantage": False,
+        "disadvantage": False,
+        "is_critical_success": False,
+        "is_critical_failure": False,
+        "notation": f"d20(5)+{modifier}={5+modifier}",
+    })
+    miss_res = resolve_enemy_attack(
+        character=char,
+        attacker="Goblin",
+        attack_bonus=2,
+        damage_formula="1d4",
+        damage_type="piercing"
+    )
+    assert miss_res["hit"] is False
+    assert char.current_hp == prev_hp
+
+    # 3. Natural 1 Fumble: raw 1 automatically misses despite high bonus (+30)
+    monkeypatch.setattr("app.engine.rules.roll_d20", lambda modifier, **kw: {
+        "raw_rolls": [1],
+        "selected_raw": 1,
+        "modifier": modifier,
+        "total": 1 + modifier,
+        "advantage": False,
+        "disadvantage": False,
+        "is_critical_success": False,
+        "is_critical_failure": True,
+        "notation": f"d20(1)+{modifier}={1+modifier}",
+    })
+    fumble_res = resolve_enemy_attack(
+        character=char,
+        attacker="Ogre",
+        attack_bonus=30,
+        damage_formula="2d8",
+        damage_type="bludgeoning"
+    )
+    assert fumble_res["hit"] is False
+    assert fumble_res["is_fumble"] is True
+
+    # 4. Natural 20 Critical: raw 20 automatically hits and crits despite low bonus (-30)
+    monkeypatch.setattr("app.engine.rules.roll_d20", lambda modifier, **kw: {
+        "raw_rolls": [20],
+        "selected_raw": 20,
+        "modifier": modifier,
+        "total": 20 + modifier,
+        "advantage": False,
+        "disadvantage": False,
+        "is_critical_success": True,
+        "is_critical_failure": False,
+        "notation": f"d20(20)+{modifier}={20+modifier}",
+    })
+    crit_res = resolve_enemy_attack(
+        character=char,
+        attacker="Assassin",
+        attack_bonus=-30,
+        damage_formula="1d6",
+        damage_type="piercing"
+    )
+    assert crit_res["hit"] is True
+    assert crit_res["is_critical"] is True
+
+    # 5. Lethal attack reducing character to unconscious
+    monkeypatch.setattr("app.engine.rules.roll_d20", lambda modifier, **kw: {
+        "raw_rolls": [15],
+        "selected_raw": 15,
+        "modifier": modifier,
+        "total": 15 + modifier,
+        "advantage": False,
+        "disadvantage": False,
+        "is_critical_success": False,
+        "is_critical_failure": False,
+        "notation": f"d20(15)+{modifier}={15+modifier}",
+    })
+    lethal_res = resolve_enemy_attack(
+        character=char,
+        attacker="Dragon",
+        attack_bonus=10,
+        damage_formula="50d6",
+        damage_type="fire"
+    )
+    assert lethal_res["hit"] is True
+    assert char.current_hp == 0
+    assert lethal_res["is_unconscious"] is True
+
+
+@pytest.mark.asyncio
+async def test_stream_parser_extended_narrative_and_combat_tags():
+    """Verify StreamParser parses all 6 narrative and combat tags."""
+    parser = StreamParser()
+
+    async def token_gen():
+        chunks = [
+            '<LOCATION_CHANGE name="Sunken Crypt" description="Damp ancient tombs" threat_level="High"/>\n',
+            'You step cautiously through the portcullis. ',
+            '<NPC_UPDATE name="Morcar" role="Captain" attitude="hostile" note="Suspects intruder"/>\n',
+            '<STORY_PROGRESS act="2" tension_delta="2" milestone="Entered the crypt"/>\n',
+            '<ENCOUNTER_START name="Cave Troll" hp="40" ac="14" attack_bonus="5" damage="2d8+3"/>\n',
+            '<ENEMY_ATTACK attacker="Cave Troll" attack_bonus="5" damage="2d8+3" damage_type="bludgeoning" reason="Club slam"/>\n',
+            '<PLAYER_DAMAGE formula="1d6" damage_type="acid" reason="Acid drip"/>\n',
+            'The fight begins!'
+        ]
+        for c in chunks:
+            yield c
+
+    events = []
+    async for ev in parser.process_token_stream(token_gen()):
+        events.append(ev)
+
+    ev_types = [e.get("type") for e in events]
+    assert "location_changed" in ev_types
+    assert "npc_updated" in ev_types
+    assert "story_progress" in ev_types
+    assert "encounter_started" in ev_types
+    assert "enemy_attack" in ev_types
+    assert "player_damage" in ev_types
+
+    loc_ev = next(e for e in events if e.get("type") == "location_changed")
+    assert loc_ev["location"]["name"] == "Sunken Crypt"
+    assert loc_ev["location"]["threat_level"] == "High"
+
+    npc_ev = next(e for e in events if e.get("type") == "npc_updated")
+    assert npc_ev["npc"]["name"] == "Morcar"
+    assert npc_ev["npc"]["attitude"] == "hostile"
+
+    story_ev = next(e for e in events if e.get("type") == "story_progress")
+    assert story_ev["progress"]["act"] == 2
+    assert story_ev["progress"]["tension_delta"] == 2
+
+    enc_ev = next(e for e in events if e.get("type") == "encounter_started")
+    assert enc_ev["enemy"]["name"] == "Cave Troll"
+    assert enc_ev["enemy"]["hp"] == 40
+
+    atk_ev = next(e for e in events if e.get("type") == "enemy_attack")
+    assert atk_ev["attack"]["attacker"] == "Cave Troll"
+    assert atk_ev["attack"]["attack_bonus"] == 5
+
+    dmg_ev = next(e for e in events if e.get("type") == "player_damage")
+    assert dmg_ev["damage"]["formula"] == "1d6"
+    assert dmg_ev["damage"]["damage_type"] == "acid"
+
+
+@pytest.mark.asyncio
+async def test_lore_manager_narrative_and_encounter_lifecycle(tmp_path):
+    """Verify LoreManager location creation, NPC tracking, story progress, and enemy tracking."""
+    lore_file = tmp_path / "world_lore.json"
+    lore = LoreManager(filepath=lore_file)
+
+    # 1. Location change
+    await lore.set_current_location("Sunken Crypt", "Ancient drowned crypts", "Deadly")
+    loc = await lore.get_current_location()
+    assert loc is not None
+    assert loc["name"] == "Sunken Crypt"
+    assert loc["threat_level"] == "Deadly"
+
+    # 2. NPC tracking
+    npc = await lore.update_npc("Dunstan", "Blacksmith", "friendly", "Forges enchanted iron")
+    assert npc["name"] == "Dunstan"
+    assert npc["attitude"] == "friendly"
+    npcs = await lore.get_npcs()
+    assert any(n["name"] == "Dunstan" for n in npcs)
+
+    # 3. Story progress
+    story = await lore.advance_story_progress(act=2, tension_delta=4, milestone="Crypt unlocked")
+    assert story["act"] == 2
+    assert story["tension_clock"] == 4
+    assert await lore.get_current_act() == 2
+    assert await lore.get_tension_clock() == 4
+
+    # 4. Encounter tracking
+    enemy = await lore.add_or_update_enemy("Cave Troll", hp=35, ac=14, attack_bonus=5, damage_formula="2d8+3")
+    assert enemy["name"] == "Cave Troll"
+    assert enemy["current_hp"] == 35
+
+    active = await lore.get_active_enemies()
+    assert len(active) == 1
+
+    # 5. Damage enemy
+    dmg_res = await lore.damage_enemy("Cave Troll", 15)
+    assert dmg_res["found"] is True
+    assert dmg_res["remaining_hp"] == 20
+    assert dmg_res["defeated"] is False
+
+    # 6. Defeat enemy
+    kill_res = await lore.damage_enemy("Cave Troll", 25)
+    assert kill_res["defeated"] is True
+    active_after = await lore.get_active_enemies()
+    assert len(active_after) == 0
+
+    # 7. Context formatting
+    context = await lore.format_targeted_context()
+    assert "Act 2/3" in context
+    assert "Dunstan" in context
+
+
 
 

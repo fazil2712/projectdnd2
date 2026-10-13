@@ -63,7 +63,7 @@ export const App: React.FC = () => {
         setCharacter(data.character);
         setCampaignName(data.campaign_name || 'D&D 5e Adventure');
         if (data.location) {
-          setLocationName(data.location.name);
+          setLocationName(typeof data.location === 'string' ? data.location : (data.location.name || ''));
         }
         if (data.active_model) {
           setActiveModel(data.active_model);
@@ -225,6 +225,99 @@ export const App: React.FC = () => {
                   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 };
                 setEntries((prev) => [...prev, rejEntry]);
+              } else if (currentEvent === 'item_granted') {
+                if (data.character) setCharacter(data.character);
+                const sysEntry: NarrativeEntry = {
+                  id: `item-grant-${Date.now()}`,
+                  role: 'system',
+                  content: `Item Acquired: ${data.item.name}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                };
+                setEntries((prev) => [...prev, sysEntry]);
+              } else if (currentEvent === 'item_consumed') {
+                if (data.character) setCharacter(data.character);
+                const sysEntry: NarrativeEntry = {
+                  id: `item-consume-${Date.now()}`,
+                  role: 'system',
+                  content: data.summary,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                };
+                setEntries((prev) => [...prev, sysEntry]);
+              } else if (currentEvent === 'level_up') {
+                if (data.character) setCharacter(data.character);
+                const sysEntry: NarrativeEntry = {
+                  id: `level-up-${Date.now()}`,
+                  role: 'system',
+                  content: `Level Up! Reached Level ${data.level_up.level}. ${data.level_up.notes?.join(', ') || ''}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                };
+                setEntries((prev) => [...prev, sysEntry]);
+              } else if (currentEvent === 'spell_learned') {
+                if (data.character) setCharacter(data.character);
+                const sysEntry: NarrativeEntry = {
+                  id: `spell-learned-${Date.now()}`,
+                  role: 'system',
+                  content: `✨ Learned Spell: ${data.spell.name} (Level ${data.spell.level})${data.reason ? ` - ${data.reason}` : ''}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                };
+                setEntries((prev) => [...prev, sysEntry]);
+              } else if (currentEvent === 'location_changed') {
+                if (data.location?.name) setLocationName(data.location.name);
+                const locEntry: NarrativeEntry = {
+                  id: `loc-${Date.now()}`,
+                  role: 'system',
+                  content: `Discovered: ${data.location.name}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { location: data.location },
+                };
+                setEntries((prev) => [...prev, locEntry]);
+              } else if (currentEvent === 'npc_updated') {
+                const npcEntry: NarrativeEntry = {
+                  id: `npc-${Date.now()}`,
+                  role: 'system',
+                  content: `NPC: ${data.npc.name} (${data.npc.role || 'Inhabitant'})`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { npc: data.npc },
+                };
+                setEntries((prev) => [...prev, npcEntry]);
+              } else if (currentEvent === 'story_progress') {
+                const storyEntry: NarrativeEntry = {
+                  id: `story-${Date.now()}`,
+                  role: 'system',
+                  content: `Story Progress: Act ${data.act} (Tension: ${data.tension_clock}/10)`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { story_progress: data },
+                };
+                setEntries((prev) => [...prev, storyEntry]);
+              } else if (currentEvent === 'encounter_started') {
+                const encEntry: NarrativeEntry = {
+                  id: `encounter-${Date.now()}`,
+                  role: 'system',
+                  content: `Encounter Started: ${data.enemy.name}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { encounter: data.enemy },
+                };
+                setEntries((prev) => [...prev, encEntry]);
+              } else if (currentEvent === 'enemy_attack_resolved') {
+                if (data.character) setCharacter(data.character);
+                const atkEntry: NarrativeEntry = {
+                  id: `enemy-atk-${Date.now()}`,
+                  role: 'system',
+                  content: data.attack.summary,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { enemy_attack: data.attack },
+                };
+                setEntries((prev) => [...prev, atkEntry]);
+              } else if (currentEvent === 'player_damaged') {
+                if (data.character) setCharacter(data.character);
+                const dmgEntry: NarrativeEntry = {
+                  id: `player-dmg-${Date.now()}`,
+                  role: 'system',
+                  content: `Took ${data.damage.amount} ${data.damage.damage_type} damage: ${data.damage.reason}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { player_damage: data.damage },
+                };
+                setEntries((prev) => [...prev, dmgEntry]);
               } else if (currentEvent === 'done') {
                 if (accumulatedDmText.trim()) {
                   const dmEntry: NarrativeEntry = {
@@ -321,6 +414,7 @@ export const App: React.FC = () => {
                   resolution: data.check_result as CheckResolution,
                   damage: data.damage_info as DamageResolution,
                 };
+                if (data.character) setCharacter(data.character);
                 setRollOutcome(outcome);
                 setIsRolling(false);
                 setRollError(null);
@@ -329,7 +423,9 @@ export const App: React.FC = () => {
                 const rollEntry: NarrativeEntry = {
                   id: `roll-${Date.now()}`,
                   role: 'system',
-                  content: data.check_result.mechanical_summary,
+                  content: data.enemy_status
+                    ? `${data.check_result.mechanical_summary} • ${data.enemy_status}`
+                    : data.check_result.mechanical_summary,
                   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                   metadata: {
                     roll: outcome.resolution,
@@ -385,6 +481,72 @@ export const App: React.FC = () => {
                   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 };
                 setEntries((prev) => [...prev, sysEntry]);
+              } else if (currentEvent === 'spell_learned') {
+                if (data.character) setCharacter(data.character);
+                const sysEntry: NarrativeEntry = {
+                  id: `spell-learned-${Date.now()}`,
+                  role: 'system',
+                  content: `✨ Learned Spell: ${data.spell.name} (Level ${data.spell.level})${data.reason ? ` - ${data.reason}` : ''}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                };
+                setEntries((prev) => [...prev, sysEntry]);
+              } else if (currentEvent === 'location_changed') {
+                if (data.location?.name) setLocationName(data.location.name);
+                const locEntry: NarrativeEntry = {
+                  id: `loc-${Date.now()}`,
+                  role: 'system',
+                  content: `Discovered: ${data.location.name}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { location: data.location },
+                };
+                setEntries((prev) => [...prev, locEntry]);
+              } else if (currentEvent === 'npc_updated') {
+                const npcEntry: NarrativeEntry = {
+                  id: `npc-${Date.now()}`,
+                  role: 'system',
+                  content: `NPC: ${data.npc.name} (${data.npc.role || 'Inhabitant'})`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { npc: data.npc },
+                };
+                setEntries((prev) => [...prev, npcEntry]);
+              } else if (currentEvent === 'story_progress') {
+                const storyEntry: NarrativeEntry = {
+                  id: `story-${Date.now()}`,
+                  role: 'system',
+                  content: `Story Progress: Act ${data.act} (Tension: ${data.tension_clock}/10)`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { story_progress: data },
+                };
+                setEntries((prev) => [...prev, storyEntry]);
+              } else if (currentEvent === 'encounter_started') {
+                const encEntry: NarrativeEntry = {
+                  id: `encounter-${Date.now()}`,
+                  role: 'system',
+                  content: `Encounter Started: ${data.enemy.name}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { encounter: data.enemy },
+                };
+                setEntries((prev) => [...prev, encEntry]);
+              } else if (currentEvent === 'enemy_attack_resolved') {
+                if (data.character) setCharacter(data.character);
+                const atkEntry: NarrativeEntry = {
+                  id: `enemy-atk-${Date.now()}`,
+                  role: 'system',
+                  content: data.attack.summary,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { enemy_attack: data.attack },
+                };
+                setEntries((prev) => [...prev, atkEntry]);
+              } else if (currentEvent === 'player_damaged') {
+                if (data.character) setCharacter(data.character);
+                const dmgEntry: NarrativeEntry = {
+                  id: `player-dmg-${Date.now()}`,
+                  role: 'system',
+                  content: `Took ${data.damage.amount} ${data.damage.damage_type} damage: ${data.damage.reason}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { player_damage: data.damage },
+                };
+                setEntries((prev) => [...prev, dmgEntry]);
               } else if (currentEvent === 'done') {
                 if (accumulatedContinuation.trim()) {
                   const dmEntry: NarrativeEntry = {
@@ -578,6 +740,7 @@ export const App: React.FC = () => {
             onModifyHp={handleModifyHp}
             onToggleSlot={handleToggleSlot}
             onToggleItem={handleToggleItem}
+            onCharacterUpdated={(updatedChar) => setCharacter(updatedChar)}
           />
         </aside>
 
