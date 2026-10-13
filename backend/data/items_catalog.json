@@ -1,0 +1,550 @@
+{
+  "armors": [
+    {
+      "id": "armor_padded",
+      "name": "Padded Armor",
+      "armor_category": "light",
+      "armor_base": 11,
+      "weight_lbs": 8.0,
+      "stealth_disadvantage": true,
+      "cost_gp": 5,
+      "description": "Padded armor consists of quilted layers of cloth and batting."
+    },
+    {
+      "id": "armor_leather",
+      "name": "Leather Armor",
+      "armor_category": "light",
+      "armor_base": 11,
+      "weight_lbs": 10.0,
+      "stealth_disadvantage": false,
+      "cost_gp": 10,
+      "description": "The breastplate and shoulder protectors of this armor are made of leather that has been stiffened by being boiled in oil."
+    },
+    {
+      "id": "armor_studded_leather",
+      "name": "Studded Leather Armor",
+      "armor_category": "light",
+      "armor_base": 12,
+      "weight_lbs": 13.0,
+      "stealth_disadvantage": false,
+      "cost_gp": 45,
+      "description": "Made from tough but flexible leather, studded leather is reinforced with close-set rivets or spikes."
+    },
+    {
+      "id": "armor_hide",
+      "name": "Hide Armor",
+      "armor_category": "medium",
+      "armor_base": 12,
+      "weight_lbs": 12.0,
+      "stealth_disadvantage": false,
+      "cost_gp": 10,
+      "description": "A crude armor made from thick furs and pelts."
+    },
+    {
+      "id": "armor_chain_shirt",
+      "name": "Chain Shirt",
+      "armor_category": "medium",
+      "armor_base": 13,
+      "weight_lbs": 20.0,
+      "stealth_disadvantage": false,
+      "cost_gp": 50,
+      "description": "Made of interlocking metal rings, a chain shirt is worn between layers of clothing or leather."
+    },
+    {
+      "id": "armor_scale_mail",
+      "name": "Scale Mail",
+      "armor_category": "medium",
+      "armor_base": 14,
+      "weight_lbs": 45.0,
+      "stealth_disadvantage": true,
+      "cost_gp": 50,
+      "description": "This armor consists of a coat and leggings of leather covered with overlapping pieces of scale-shaped metal."
+    },
+    {
+      "id": "armor_breastplate",
+      "name": "Breastplate",
+      "armor_category": "medium",
+      "armor_base": 14,
+      "weight_lbs": 20.0,
+      "stealth_disadvantage": false,
+      "cost_gp": 400,
+      "description": "A fitted metal chest piece worn with supple leather. It provides good protection without hindering movement."
+    },
+    {
+      "id": "armor_half_plate",
+      "name": "Half Plate",
+      "armor_category": "medium",
+      "armor_base": 15,
+      "weight_lbs": 40.0,
+      "stealth_disadvantage": true,
+      "cost_gp": 750,
+      "description": "Half plate consists of shaped metal plates that cover most of the wearer's body."
+    },
+    {
+      "id": "armor_ring_mail",
+      "name": "Ring Mail",
+      "armor_category": "heavy",
+      "armor_base": 14,
+      "weight_lbs": 40.0,
+      "stealth_disadvantage": true,
+      "cost_gp": 30,
+      "description": "Leather armor with heavy rings sewn into it."
+    },
+    {
+      "id": "armor_chain_mail",
+      "name": "Chain Mail",
+      "armor_category": "heavy",
+      "armor_base": 16,
+      "weight_lbs": 55.0,
+      "stealth_disadvantage": true,
+      "cost_gp": 75,
+      "description": "Made of interlocking metal rings, chain mail includes a gauntlet and padded undergarment."
+    },
+    {
+      "id": "armor_splint",
+      "name": "Splint Armor",
+      "armor_category": "heavy",
+      "armor_base": 17,
+      "weight_lbs": 60.0,
+      "stealth_disadvantage": true,
+      "cost_gp": 200,
+      "description": "This armor is made of narrow vertical strips of metal riveted to a backing of leather."
+    },
+    {
+      "id": "armor_plate",
+      "name": "Plate Armor",
+      "armor_category": "heavy",
+      "armor_base": 18,
+      "weight_lbs": 65.0,
+      "stealth_disadvantage": true,
+      "cost_gp": 1500,
+      "description": "Interlocking shaped steel plates that cover the entire body. The pinnacle of non-magical protection."
+    },
+    {
+      "id": "shield_steel",
+      "name": "Shield",
+      "armor_category": "shield",
+      "armor_base": 2,
+      "weight_lbs": 6.0,
+      "stealth_disadvantage": false,
+      "cost_gp": 10,
+      "description": "A wooden or metal shield carried in one hand. Wielding a shield increases Armor Class by 2."
+    }
+  ],
+  "weapons": [
+    {
+      "id": "wpn_dagger",
+      "name": "Dagger",
+      "item_type": "weapon",
+      "damage": "1d4",
+      "damage_type": "piercing",
+      "weight_lbs": 1.0,
+      "properties": [
+        "finesse",
+        "light",
+        "thrown"
+      ],
+      "cost_gp": 2,
+      "description": "A balanced, easily concealed blade favored by rogues and sorcerers."
+    },
+    {
+      "id": "wpn_handaxe",
+      "name": "Handaxe",
+      "item_type": "weapon",
+      "damage": "1d6",
+      "damage_type": "slashing",
+      "weight_lbs": 2.0,
+      "properties": [
+        "light",
+        "thrown"
+      ],
+      "cost_gp": 5,
+      "description": "A light wood-chopping axe balanced for melee combat or throwing."
+    },
+    {
+      "id": "wpn_mace",
+      "name": "Mace",
+      "item_type": "weapon",
+      "damage": "1d6",
+      "damage_type": "bludgeoning",
+      "weight_lbs": 4.0,
+      "properties": [],
+      "cost_gp": 5,
+      "description": "A heavy flanged iron head affixed to a reinforced shaft."
+    },
+    {
+      "id": "wpn_quarterstaff",
+      "name": "Quarterstaff",
+      "item_type": "weapon",
+      "damage": "1d6",
+      "damage_type": "bludgeoning",
+      "weight_lbs": 4.0,
+      "properties": [
+        "versatile (1d8)"
+      ],
+      "cost_gp": 0.2,
+      "description": "A six-foot length of seasoned ash or oak, often serving as an arcane focus."
+    },
+    {
+      "id": "wpn_spear",
+      "name": "Spear",
+      "item_type": "weapon",
+      "damage": "1d6",
+      "damage_type": "piercing",
+      "weight_lbs": 3.0,
+      "properties": [
+        "thrown",
+        "versatile (1d8)"
+      ],
+      "cost_gp": 1,
+      "description": "A wooden haft tipped with a sharpened leaf-shaped steel head."
+    },
+    {
+      "id": "wpn_light_crossbow",
+      "name": "Light Crossbow",
+      "item_type": "weapon",
+      "damage": "1d8",
+      "damage_type": "piercing",
+      "weight_lbs": 5.0,
+      "properties": [
+        "ammunition",
+        "range (80/320)",
+        "loading",
+        "two-handed"
+      ],
+      "cost_gp": 25,
+      "description": "A mechanical bow mounted on a wooden stock with a lever draw."
+    },
+    {
+      "id": "wpn_shortbow",
+      "name": "Shortbow",
+      "item_type": "weapon",
+      "damage": "1d6",
+      "damage_type": "piercing",
+      "weight_lbs": 2.0,
+      "properties": [
+        "ammunition",
+        "range (80/320)",
+        "two-handed"
+      ],
+      "cost_gp": 25,
+      "description": "A compact curved wooden bow ideal for skirmishing and ambush."
+    },
+    {
+      "id": "wpn_battleaxe",
+      "name": "Battleaxe",
+      "item_type": "weapon",
+      "damage": "1d8",
+      "damage_type": "slashing",
+      "weight_lbs": 4.0,
+      "properties": [
+        "versatile (1d10)"
+      ],
+      "cost_gp": 10,
+      "description": "A broad, bearded axe head capable of cleaving through shields and mail."
+    },
+    {
+      "id": "wpn_greatsword",
+      "name": "Greatsword",
+      "item_type": "weapon",
+      "damage": "2d6",
+      "damage_type": "slashing",
+      "weight_lbs": 6.0,
+      "properties": [
+        "heavy",
+        "two-handed"
+      ],
+      "cost_gp": 50,
+      "description": "A massive two-handed sword with a double-edged blade over four feet long."
+    },
+    {
+      "id": "wpn_greataxe",
+      "name": "Greataxe",
+      "item_type": "weapon",
+      "damage": "1d12",
+      "damage_type": "slashing",
+      "weight_lbs": 7.0,
+      "properties": [
+        "heavy",
+        "two-handed"
+      ],
+      "cost_gp": 30,
+      "description": "A brutal, broad-headed executioner's axe favored by barbarians."
+    },
+    {
+      "id": "wpn_longsword",
+      "name": "Longsword",
+      "item_type": "weapon",
+      "damage": "1d8",
+      "damage_type": "slashing",
+      "weight_lbs": 3.0,
+      "properties": [
+        "versatile (1d10)"
+      ],
+      "cost_gp": 15,
+      "description": "The quintessential weapon of knights, versatile for one-handed or two-handed strikes."
+    },
+    {
+      "id": "wpn_rapier",
+      "name": "Rapier",
+      "item_type": "weapon",
+      "damage": "1d8",
+      "damage_type": "piercing",
+      "weight_lbs": 2.0,
+      "properties": [
+        "finesse"
+      ],
+      "cost_gp": 25,
+      "description": "A slender, sharply pointed blade designed for thrusting with agility."
+    },
+    {
+      "id": "wpn_scimitar",
+      "name": "Scimitar",
+      "item_type": "weapon",
+      "damage": "1d6",
+      "damage_type": "slashing",
+      "weight_lbs": 3.0,
+      "properties": [
+        "finesse",
+        "light"
+      ],
+      "cost_gp": 25,
+      "description": "A curved, single-edged blade designed for swift slashing manoeuvres."
+    },
+    {
+      "id": "wpn_shortsword",
+      "name": "Shortsword",
+      "item_type": "weapon",
+      "damage": "1d6",
+      "damage_type": "piercing",
+      "weight_lbs": 2.0,
+      "properties": [
+        "finesse",
+        "light"
+      ],
+      "cost_gp": 10,
+      "description": "A straight, double-edged blade favored for dual-wielding and tight corridors."
+    },
+    {
+      "id": "wpn_warhammer",
+      "name": "Warhammer",
+      "item_type": "weapon",
+      "damage": "1d8",
+      "damage_type": "bludgeoning",
+      "weight_lbs": 4.0,
+      "properties": [
+        "versatile (1d10)"
+      ],
+      "cost_gp": 15,
+      "description": "A heavy steel hammer with a flat striking face and a rear armor-piercing spike."
+    },
+    {
+      "id": "wpn_heavy_crossbow",
+      "name": "Heavy Crossbow",
+      "item_type": "weapon",
+      "damage": "1d10",
+      "damage_type": "piercing",
+      "weight_lbs": 18.0,
+      "properties": [
+        "ammunition",
+        "range (100/400)",
+        "heavy",
+        "loading",
+        "two-handed"
+      ],
+      "cost_gp": 50,
+      "description": "A high-tension steel winch crossbow with bone-shattering penetration."
+    },
+    {
+      "id": "wpn_longbow",
+      "name": "Longbow",
+      "item_type": "weapon",
+      "damage": "1d8",
+      "damage_type": "piercing",
+      "weight_lbs": 2.0,
+      "properties": [
+        "ammunition",
+        "range (150/600)",
+        "heavy",
+        "two-handed"
+      ],
+      "cost_gp": 50,
+      "description": "A tall yew bow capable of long-range battlefield volleys."
+    }
+  ],
+  "potions_and_consumables": [
+    {
+      "id": "pot_healing_basic",
+      "name": "Potion of Healing",
+      "item_type": "potion",
+      "healing_dice": "2d4+2",
+      "weight_lbs": 0.5,
+      "properties": [
+        "consumable"
+      ],
+      "cost_gp": 50,
+      "description": "A magical red fluid that restores 2d4 + 2 hit points when consumed."
+    },
+    {
+      "id": "pot_healing_greater",
+      "name": "Potion of Greater Healing",
+      "item_type": "potion",
+      "healing_dice": "4d4+4",
+      "weight_lbs": 0.5,
+      "properties": [
+        "consumable"
+      ],
+      "cost_gp": 150,
+      "description": "A potent vermilion elixir restoring 4d4 + 4 hit points."
+    },
+    {
+      "id": "pot_healing_superior",
+      "name": "Potion of Superior Healing",
+      "item_type": "potion",
+      "healing_dice": "8d4+8",
+      "weight_lbs": 0.5,
+      "properties": [
+        "consumable"
+      ],
+      "cost_gp": 450,
+      "description": "A glowing crimson tonic restoring 8d4 + 8 hit points."
+    },
+    {
+      "id": "pot_antitoxin",
+      "name": "Antitoxin",
+      "item_type": "potion",
+      "weight_lbs": 0.5,
+      "properties": [
+        "consumable"
+      ],
+      "cost_gp": 50,
+      "description": "Grants advantage on saving throws against poison for 1 hour."
+    },
+    {
+      "id": "item_alchemists_fire",
+      "name": "Alchemist's Fire",
+      "item_type": "consumable",
+      "damage": "1d4",
+      "damage_type": "fire",
+      "weight_lbs": 1.0,
+      "properties": [
+        "thrown"
+      ],
+      "cost_gp": 50,
+      "description": "A flask of sticky, volatile liquid that ignites upon exposure to air."
+    },
+    {
+      "id": "item_holy_water",
+      "name": "Holy Water",
+      "item_type": "consumable",
+      "damage": "2d6",
+      "damage_type": "radiant",
+      "weight_lbs": 1.0,
+      "properties": [
+        "thrown"
+      ],
+      "cost_gp": 25,
+      "description": "Blessed water harmful to fiends and undead."
+    }
+  ],
+  "gear_and_tools": [
+    {
+      "id": "tool_thieves",
+      "name": "Thieves' Tools",
+      "item_type": "tool",
+      "weight_lbs": 1.0,
+      "cost_gp": 25,
+      "description": "Lockpicks, tension wrenches, small mirrors, and fine pliers used to pick locks and disarm mechanical traps."
+    },
+    {
+      "id": "focus_arcane_wand",
+      "name": "Arcane Focus (Wand)",
+      "item_type": "gear",
+      "weight_lbs": 1.0,
+      "cost_gp": 10,
+      "description": "A wand crafted of rune-inscribed wood used to channel arcane spells."
+    },
+    {
+      "id": "focus_arcane_crystal",
+      "name": "Arcane Focus (Crystal)",
+      "item_type": "gear",
+      "weight_lbs": 1.0,
+      "cost_gp": 10,
+      "description": "A cut gemstone humming with residual weave."
+    },
+    {
+      "id": "focus_holy_symbol",
+      "name": "Holy Symbol (Amulet)",
+      "item_type": "gear",
+      "weight_lbs": 1.0,
+      "cost_gp": 5,
+      "description": "A consecrated emblem worn as a medallion to channel divine magic."
+    },
+    {
+      "id": "gear_backpack",
+      "name": "Backpack",
+      "item_type": "gear",
+      "weight_lbs": 5.0,
+      "cost_gp": 2,
+      "description": "A sturdy leather pack holding up to 30 pounds of equipment."
+    },
+    {
+      "id": "gear_rope_hemp",
+      "name": "Hempen Rope (50 feet)",
+      "item_type": "gear",
+      "weight_lbs": 10.0,
+      "cost_gp": 1,
+      "description": "Fifty feet of durable braided hemp rope."
+    },
+    {
+      "id": "gear_torch",
+      "name": "Torch (Bundle of 3)",
+      "item_type": "gear",
+      "weight_lbs": 3.0,
+      "cost_gp": 0.1,
+      "description": "Burns for 1 hour, providing bright light in a 20-foot radius and dim light for an additional 20 feet."
+    },
+    {
+      "id": "gear_rations",
+      "name": "Rations (1 day)",
+      "item_type": "gear",
+      "weight_lbs": 2.0,
+      "cost_gp": 0.5,
+      "description": "Dry food suitable for extended travel, including jerky, dried fruit, hardtack, and nuts."
+    },
+    {
+      "id": "gear_tinderbox",
+      "name": "Tinderbox",
+      "item_type": "gear",
+      "weight_lbs": 1.0,
+      "cost_gp": 0.5,
+      "description": "Flint, fire steel, and tinder used to ignite a campfire or torch."
+    },
+    {
+      "id": "gear_waterskin",
+      "name": "Waterskin",
+      "item_type": "gear",
+      "weight_lbs": 5.0,
+      "cost_gp": 0.2,
+      "description": "Holds 4 pints of liquid."
+    }
+  ],
+  "custom_campaign_items": [
+    {
+      "name": "Inverted Spear of Heaven",
+      "item_type": "weapon",
+      "quantity": 1,
+      "weight_lbs": 2.5,
+      "damage": "1d8",
+      "damage_type": "piercing",
+      "armor_base": null,
+      "armor_category": null,
+      "properties": [
+        "finesse",
+        "nullification"
+      ],
+      "description": "A jitte dagger with a carved two-pronged blade capable of forcefully disrupting and nullifying cursed techniques.",
+      "id": "custom_1_inverted_spear_of_heaven"
+    }
+  ]
+}

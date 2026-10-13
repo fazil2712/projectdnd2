@@ -1,0 +1,547 @@
+{
+  "communities": {
+    "0": [
+      "asyncio",
+      "backend_app_config",
+      "backend_app_engine_character",
+      "backend_app_engine_character_deathsaves",
+      "backend_app_engine_character_inventoryitem",
+      "backend_app_engine_character_py_basemodel",
+      "backend_app_engine_character_spellslotlevel",
+      "backend_app_engine_character_spellslots",
+      "backend_app_engine_compendium",
+      "backend_app_engine_rules",
+      "backend_app_engine_rules_normalize_identifier",
+      "backend_app_engine_rules_rationale_173",
+      "backend_app_engine_rules_rationale_221",
+      "backend_app_engine_rules_rationale_351",
+      "backend_app_engine_rules_resolve_attack_damage",
+      "backend_app_engine_rules_validate_and_clamp_character_stats",
+      "backend_app_engine_rules_validate_inventory_item",
+      "backend_app_llm_client",
+      "backend_app_llm_prompts",
+      "backend_app_llm_prompts_build_messages_payload",
+      "backend_app_llm_prompts_build_system_prompt",
+      "backend_app_llm_prompts_rationale_107",
+      "backend_app_llm_prompts_rationale_73",
+      "backend_app_main",
+      "backend_app_main_actionrequest",
+      "backend_app_main_campaigncreationrequest",
+      "backend_app_main_checkresolverequest",
+      "backend_app_main_create_campaign_endpoint",
+      "backend_app_main_damageinflictrequest",
+      "backend_app_main_grantitemrequest",
+      "backend_app_main_itemtogglerequest",
+      "backend_app_main_leveluprequest",
+      "backend_app_main_manual_grant_item",
+      "backend_app_main_manual_level_up",
+      "backend_app_main_modelselectrequest",
+      "backend_app_main_modify_character_hp",
+      "backend_app_main_py_basemodel",
+      "backend_app_main_rationale_189",
+      "backend_app_main_rationale_198",
+      "backend_app_main_rationale_473",
+      "backend_app_main_rationale_481",
+      "backend_app_main_rationale_489",
+      "backend_app_main_rationale_509",
+      "backend_app_main_rationale_518",
+      "backend_app_main_rationale_530",
+      "backend_app_main_rationale_539",
+      "backend_app_main_reset_game",
+      "backend_app_main_select_active_model",
+      "backend_app_main_spellslottogglerequest",
+      "backend_app_main_startup_event",
+      "backend_app_main_toggle_item",
+      "backend_app_main_toggle_slot",
+      "backend_app_main_trigger_model_pull",
+      "backend_app_memory_chronicle",
+      "backend_app_memory_lore_manager",
+      "backend_app_memory_state_manager",
+      "backend_tests_test_engine_test_inventory_validation",
+      "hpmodifyrequest",
+      "on_event",
+      "post"
+    ],
+    "1": [
+      "frontend_src_app",
+      "frontend_src_app_app",
+      "frontend_src_components_actioninput",
+      "frontend_src_components_actioninput_actioninput",
+      "frontend_src_components_actioninput_actioninputprops",
+      "frontend_src_components_actioninput_quick_actions",
+      "frontend_src_components_campaignsetupmodal",
+      "frontend_src_components_campaignsetupmodal_backstory_seeds",
+      "frontend_src_components_campaignsetupmodal_campaignsetupmodal",
+      "frontend_src_components_campaignsetupmodal_campaignsetupmodalprops",
+      "frontend_src_components_campaignsetupmodal_grounded_names_anime",
+      "frontend_src_components_campaignsetupmodal_grounded_names_cyber",
+      "frontend_src_components_campaignsetupmodal_grounded_names_general",
+      "frontend_src_components_campaignsetupmodal_quick_settings",
+      "frontend_src_components_campaignsetupmodal_races_5e",
+      "frontend_src_components_campaignsetupmodal_standard_arrays",
+      "frontend_src_components_charactersheet",
+      "frontend_src_components_charactersheet_charactersheet",
+      "frontend_src_components_charactersheet_charactersheetprops",
+      "frontend_src_components_checkmodal",
+      "frontend_src_components_checkmodal_checkmodal",
+      "frontend_src_components_checkmodal_checkmodalprops",
+      "frontend_src_components_dicetray",
+      "frontend_src_components_dicetray_dicetray",
+      "frontend_src_components_dicetray_dicetrayprops",
+      "frontend_src_components_modelselector",
+      "frontend_src_components_modelselector_modelselector",
+      "frontend_src_components_modelselector_modelselectorprops",
+      "frontend_src_components_narrativelog",
+      "frontend_src_components_narrativelog_narrativelog",
+      "frontend_src_components_narrativelog_narrativelogprops",
+      "frontend_src_main",
+      "frontend_src_types_game",
+      "frontend_src_types_game_abilityscores",
+      "frontend_src_types_game_character",
+      "frontend_src_types_game_checkrequestdata",
+      "frontend_src_types_game_checkresolution",
+      "frontend_src_types_game_damageresolution",
+      "frontend_src_types_game_deathsaves",
+      "frontend_src_types_game_inventoryitem",
+      "frontend_src_types_game_modelinfo",
+      "frontend_src_types_game_narrativeentry",
+      "frontend_src_types_game_rollresult",
+      "frontend_src_types_game_spellslotlevel",
+      "frontend_src_types_game_spellslots",
+      "ref_lucide_react",
+      "ref_react"
+    ],
+    "2": [
+      "backend_app_engine_character_abilityscores",
+      "backend_app_engine_character_character",
+      "backend_app_engine_character_character_ability_modifiers",
+      "backend_app_engine_character_character_armor_class",
+      "backend_app_engine_character_character_carrying_capacity_lbs",
+      "backend_app_engine_character_character_is_encumbered",
+      "backend_app_engine_character_character_passive_perception",
+      "backend_app_engine_character_character_proficiency_bonus",
+      "backend_app_engine_character_character_saving_throw_bonuses",
+      "backend_app_engine_character_character_skill_bonuses",
+      "backend_app_engine_character_character_spell_attack_bonus",
+      "backend_app_engine_character_character_spell_save_dc",
+      "backend_app_engine_character_character_total_weight_carried",
+      "backend_app_engine_compendium_compendiummanager_consume_item_from_character",
+      "backend_app_engine_compendium_rationale_182",
+      "backend_app_engine_dice",
+      "backend_app_engine_dice_rationale_11",
+      "backend_app_engine_dice_rationale_60",
+      "backend_app_engine_dice_roll_d20",
+      "backend_app_engine_dice_roll_dice",
+      "backend_app_engine_rules_apply_damage",
+      "backend_app_engine_rules_apply_heal",
+      "backend_app_engine_rules_py_any",
+      "backend_app_engine_rules_rationale_242",
+      "backend_app_engine_rules_rationale_261",
+      "backend_app_engine_rules_rationale_27",
+      "backend_app_engine_rules_rationale_310",
+      "backend_app_engine_rules_resolve_check",
+      "backend_app_engine_rules_validate_and_consume_spell_slot",
+      "backend_tests_test_engine",
+      "backend_tests_test_engine_test_character_derived_stats",
+      "backend_tests_test_engine_test_damage_and_healing",
+      "backend_tests_test_engine_test_dice_advantage",
+      "backend_tests_test_engine_test_dice_cancel_advantage_disadvantage",
+      "backend_tests_test_engine_test_dice_critical_doubling",
+      "backend_tests_test_engine_test_dice_disadvantage",
+      "backend_tests_test_engine_test_dice_formula",
+      "backend_tests_test_engine_test_dice_straight_roll",
+      "backend_tests_test_engine_test_dwarf_poison_advantage",
+      "backend_tests_test_engine_test_elf_charm_advantage",
+      "backend_tests_test_engine_test_half_orc_relentless_endurance",
+      "backend_tests_test_engine_test_resolve_skill_check",
+      "backend_tests_test_engine_test_spell_slot_consumption",
+      "computed_field"
+    ],
+    "3": [
+      "frontend_package",
+      "frontend_package_dependencies",
+      "frontend_package_dependencies_lucide_react",
+      "frontend_package_dependencies_react",
+      "frontend_package_dependencies_react_dom",
+      "frontend_package_devdependencies",
+      "frontend_package_devdependencies_types_react",
+      "frontend_package_devdependencies_types_react_dom",
+      "frontend_package_devdependencies_typescript",
+      "frontend_package_devdependencies_vite",
+      "frontend_package_devdependencies_vitejs_plugin_react",
+      "frontend_package_name",
+      "frontend_package_private",
+      "frontend_package_scripts",
+      "frontend_package_scripts_build",
+      "frontend_package_scripts_dev",
+      "frontend_package_scripts_preview",
+      "frontend_package_type",
+      "frontend_package_version",
+      "frontend_vite_config",
+      "ref_react_dom",
+      "ref_types_react",
+      "ref_types_react_dom",
+      "ref_typescript",
+      "ref_vite",
+      "ref_vitejs_plugin_react"
+    ],
+    "4": [
+      "backend_app_llm_parser",
+      "backend_app_llm_parser_py_any",
+      "backend_app_llm_parser_rationale_56",
+      "backend_app_llm_parser_rationale_6",
+      "backend_app_llm_parser_streamparser",
+      "backend_app_llm_parser_streamparser_init",
+      "backend_app_llm_parser_streamparser_parse_attributes",
+      "backend_app_llm_parser_streamparser_process_token_stream",
+      "backend_app_main_execute_player_action",
+      "backend_app_main_execute_player_action_event_generator",
+      "backend_app_main_execute_player_action_unconscious_stream",
+      "backend_app_main_rationale_205",
+      "backend_app_main_rationale_349",
+      "backend_app_main_resolve_check_endpoint",
+      "backend_app_main_resolve_check_endpoint_continuation_stream",
+      "backend_tests_test_engine_test_parser_interrupt_detection",
+      "backend_tests_test_engine_test_parser_interrupt_detection_sample_tokens",
+      "backend_tests_test_engine_test_parser_rejection_detection",
+      "backend_tests_test_engine_test_parser_rejection_detection_reject_tokens",
+      "request"
+    ],
+    "5": [
+      "frontend_tsconfig",
+      "frontend_tsconfig_compileroptions",
+      "frontend_tsconfig_compileroptions_allowimportingtsextensions",
+      "frontend_tsconfig_compileroptions_isolatedmodules",
+      "frontend_tsconfig_compileroptions_jsx",
+      "frontend_tsconfig_compileroptions_lib",
+      "frontend_tsconfig_compileroptions_module",
+      "frontend_tsconfig_compileroptions_moduleresolution",
+      "frontend_tsconfig_compileroptions_noemit",
+      "frontend_tsconfig_compileroptions_nofallthroughcasesinswitch",
+      "frontend_tsconfig_compileroptions_nounusedlocals",
+      "frontend_tsconfig_compileroptions_nounusedparameters",
+      "frontend_tsconfig_compileroptions_resolvejsonmodule",
+      "frontend_tsconfig_compileroptions_skiplibcheck",
+      "frontend_tsconfig_compileroptions_strict",
+      "frontend_tsconfig_compileroptions_target",
+      "frontend_tsconfig_compileroptions_usedefineforclassfields",
+      "frontend_tsconfig_include",
+      "frontend_tsconfig_references"
+    ],
+    "6": [
+      "backend_app_llm_client_ollamaclient",
+      "backend_app_llm_client_ollamaclient_check_health",
+      "backend_app_llm_client_ollamaclient_download_worker",
+      "backend_app_llm_client_ollamaclient_generate_action_narrative",
+      "backend_app_llm_client_ollamaclient_generate_resolution_narrative",
+      "backend_app_llm_client_ollamaclient_get_installed_models",
+      "backend_app_llm_client_ollamaclient_init",
+      "backend_app_llm_client_ollamaclient_is_model_ready",
+      "backend_app_llm_client_ollamaclient_simulate_dm_stream",
+      "backend_app_llm_client_ollamaclient_start_sequential_downloads",
+      "backend_app_llm_client_ollamaclient_stream_chat",
+      "backend_app_llm_client_rationale_121",
+      "backend_app_llm_client_rationale_18",
+      "backend_app_llm_client_rationale_239",
+      "backend_app_llm_client_rationale_246",
+      "backend_app_llm_client_rationale_33",
+      "backend_app_llm_client_rationale_42",
+      "backend_app_llm_client_rationale_64"
+    ],
+    "7": [
+      "backend_app_memory_chronicle_chroniclemanager",
+      "backend_app_memory_chronicle_chroniclemanager_add_turn",
+      "backend_app_memory_chronicle_chroniclemanager_append_milestone",
+      "backend_app_memory_chronicle_chroniclemanager_ensure_file",
+      "backend_app_memory_chronicle_chroniclemanager_get_chronicle_markdown",
+      "backend_app_memory_chronicle_chroniclemanager_get_recent_turns",
+      "backend_app_memory_chronicle_chroniclemanager_init",
+      "backend_app_memory_chronicle_chroniclemanager_reset_chronicle",
+      "backend_app_memory_chronicle_chroniclemanager_summarize_old_turns",
+      "backend_app_memory_chronicle_py_path",
+      "backend_app_memory_chronicle_rationale_40",
+      "backend_app_memory_chronicle_rationale_47",
+      "backend_app_memory_chronicle_rationale_54",
+      "backend_app_memory_chronicle_rationale_63",
+      "backend_app_memory_chronicle_rationale_74",
+      "backend_app_memory_chronicle_rationale_8"
+    ],
+    "8": [
+      "backend_app_engine_compendium_compendiummanager",
+      "backend_app_engine_compendium_compendiummanager_apply_level_up",
+      "backend_app_engine_compendium_compendiummanager_find_item_in_catalog",
+      "backend_app_engine_compendium_compendiummanager_get_all_items",
+      "backend_app_engine_compendium_compendiummanager_get_all_spells",
+      "backend_app_engine_compendium_compendiummanager_grant_item_to_character",
+      "backend_app_engine_compendium_compendiummanager_init",
+      "backend_app_engine_compendium_compendiummanager_load_catalogs",
+      "backend_app_engine_compendium_compendiummanager_register_custom_item",
+      "backend_app_engine_compendium_py_any",
+      "backend_app_engine_compendium_py_inventoryitem",
+      "backend_app_engine_compendium_rationale_107",
+      "backend_app_engine_compendium_rationale_132",
+      "backend_app_engine_compendium_rationale_218",
+      "backend_app_engine_compendium_rationale_62"
+    ],
+    "9": [
+      "backend_app_memory_state_manager_py_any",
+      "backend_app_memory_state_manager_py_path",
+      "backend_app_memory_state_manager_rationale_10",
+      "backend_app_memory_state_manager_rationale_53",
+      "backend_app_memory_state_manager_rationale_73",
+      "backend_app_memory_state_manager_statemanager",
+      "backend_app_memory_state_manager_statemanager_get_character",
+      "backend_app_memory_state_manager_statemanager_init",
+      "backend_app_memory_state_manager_statemanager_load_initial",
+      "backend_app_memory_state_manager_statemanager_modify_hp",
+      "backend_app_memory_state_manager_statemanager_save_character",
+      "backend_app_memory_state_manager_statemanager_save_sync",
+      "backend_app_memory_state_manager_statemanager_toggle_item_equipped",
+      "backend_app_memory_state_manager_statemanager_toggle_spell_slot",
+      "backend_app_memory_state_manager_statemanager_update_from_dict"
+    ],
+    "10": [
+      "backend_app_memory_lore_manager_loremanager",
+      "backend_app_memory_lore_manager_loremanager_format_targeted_context",
+      "backend_app_memory_lore_manager_loremanager_get_current_location",
+      "backend_app_memory_lore_manager_loremanager_get_raw_lore",
+      "backend_app_memory_lore_manager_loremanager_init",
+      "backend_app_memory_lore_manager_loremanager_load_initial",
+      "backend_app_memory_lore_manager_loremanager_set_current_location",
+      "backend_app_memory_lore_manager_loremanager_update_campaign_setting",
+      "backend_app_memory_lore_manager_py_any",
+      "backend_app_memory_lore_manager_py_path",
+      "backend_app_memory_lore_manager_rationale_82",
+      "backend_app_memory_lore_manager_rationale_9"
+    ],
+    "11": [
+      "backend_app_main_get_compendium_items",
+      "backend_app_main_get_compendium_spells",
+      "backend_app_main_get_game_state",
+      "backend_app_main_get_models_status",
+      "backend_app_main_rationale_131",
+      "backend_app_main_rationale_151",
+      "backend_app_main_rationale_497",
+      "backend_app_main_rationale_503",
+      "backend_app_main_serve_spa",
+      "get"
+    ],
+    "12": [
+      "backend_app_llm_campaign_generator",
+      "backend_app_llm_campaign_generator_call_ollama_json",
+      "backend_app_llm_campaign_generator_generate_campaign_world_and_storyline",
+      "backend_app_llm_campaign_generator_generate_fallback_campaign",
+      "backend_app_llm_campaign_generator_match_archetype",
+      "backend_app_llm_campaign_generator_py_any",
+      "backend_app_llm_campaign_generator_rationale_185",
+      "backend_app_llm_campaign_generator_rationale_259",
+      "backend_tests_test_engine_test_backstory_storyline_and_auto_tone"
+    ],
+    "13": [
+      "frontend_tsconfig_node",
+      "frontend_tsconfig_node_compileroptions",
+      "frontend_tsconfig_node_compileroptions_allowsyntheticdefaultimports",
+      "frontend_tsconfig_node_compileroptions_composite",
+      "frontend_tsconfig_node_compileroptions_module",
+      "frontend_tsconfig_node_compileroptions_moduleresolution",
+      "frontend_tsconfig_node_compileroptions_skiplibcheck",
+      "frontend_tsconfig_node_include"
+    ],
+    "14": [
+      "backend_app_engine_init",
+      "backend_app_engine_init_rationale_1"
+    ],
+    "15": [
+      "backend_app_init",
+      "backend_app_init_rationale_1"
+    ],
+    "16": [
+      "backend_app_llm_init",
+      "backend_app_llm_init_rationale_1"
+    ],
+    "17": [
+      "backend_app_memory_init",
+      "backend_app_memory_init_rationale_1"
+    ],
+    "18": [
+      "backend_tests_init",
+      "backend_tests_init_rationale_1"
+    ],
+    "19": [
+      "start_tunnel",
+      "start_tunnel_main"
+    ],
+    "20": [
+      "run_server"
+    ]
+  },
+  "cohesion": {
+    "0": 0.06779661016949153,
+    "1": 0.0841813135985199,
+    "2": 0.09302325581395349,
+    "3": 0.08,
+    "4": 0.12105263157894737,
+    "5": 0.10526315789473684,
+    "6": 0.1568627450980392,
+    "7": 0.15,
+    "8": 0.20952380952380953,
+    "9": 0.21904761904761905,
+    "10": 0.21212121212121213,
+    "11": 0.2,
+    "12": 0.3888888888888889,
+    "13": 0.25,
+    "14": 1.0,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0,
+    "18": 1.0,
+    "19": 1.0,
+    "20": 1.0
+  },
+  "gods": [
+    {
+      "id": "backend_app_engine_character_character",
+      "label": "Character",
+      "degree": 44
+    },
+    {
+      "id": "frontend_tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "degree": 16
+    },
+    {
+      "id": "backend_app_engine_compendium_compendiummanager",
+      "label": "CompendiumManager",
+      "degree": 13
+    },
+    {
+      "id": "backend_app_engine_rules_resolve_check",
+      "label": "resolve_check()",
+      "degree": 13
+    },
+    {
+      "id": "backend_app_llm_parser_streamparser",
+      "label": "StreamParser",
+      "degree": 13
+    },
+    {
+      "id": "backend_app_engine_character_inventoryitem",
+      "label": "InventoryItem",
+      "degree": 12
+    },
+    {
+      "id": "backend_app_llm_client_ollamaclient",
+      "label": "OllamaClient",
+      "degree": 12
+    },
+    {
+      "id": "backend_app_memory_state_manager_statemanager",
+      "label": "StateManager",
+      "degree": 12
+    },
+    {
+      "id": "backend_app_main_resolve_check_endpoint",
+      "label": "resolve_check_endpoint()",
+      "degree": 11
+    },
+    {
+      "id": "backend_app_main_create_campaign_endpoint",
+      "label": "create_campaign_endpoint()",
+      "degree": 11
+    }
+  ],
+  "surprises": [
+    {
+      "source": "CompendiumManager",
+      "target": "InventoryItem",
+      "source_files": [
+        "backend/app/engine/compendium.py",
+        "backend/app/engine/character.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "create_campaign_endpoint()",
+      "target": "AbilityScores",
+      "source_files": [
+        "backend/app/main.py",
+        "backend/app/engine/character.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "CompendiumManager",
+      "target": "Character",
+      "source_files": [
+        "backend/app/engine/compendium.py",
+        "backend/app/engine/character.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "resolve_attack_damage()",
+      "target": "Character",
+      "source_files": [
+        "backend/app/engine/rules.py",
+        "backend/app/engine/character.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "validate_inventory_item()",
+      "target": "Character",
+      "source_files": [
+        "backend/app/engine/rules.py",
+        "backend/app/engine/character.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `Character` connect `Community 2` to `Community 0`, `Community 8`, `Community 9`?",
+      "why": "High betweenness centrality (0.130) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `OllamaClient` connect `Community 6` to `Community 0`?",
+      "why": "High betweenness centrality (0.064) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `ChronicleManager` connect `Community 7` to `Community 0`?",
+      "why": "High betweenness centrality (0.057) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 11 inferred relationships involving `Character` (e.g. with `CompendiumManager` and `apply_damage()`) actually correct?",
+      "why": "`Character` has 11 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 2 inferred relationships involving `CompendiumManager` (e.g. with `Character` and `InventoryItem`) actually correct?",
+      "why": "`CompendiumManager` has 2 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 4 inferred relationships involving `StreamParser` (e.g. with `execute_player_action()` and `resolve_check_endpoint()`) actually correct?",
+      "why": "`StreamParser` has 4 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `name`, `private`, `version` to the rest of the system?",
+      "why": "58 weakly-connected nodes found - possible documentation gaps or missing edges."
+    }
+  ]
+}

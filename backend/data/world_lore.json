@@ -1,0 +1,98 @@
+{
+  "campaign_name": "Shadows over the Sword Coast: The Netherese Cipher",
+  "current_location_id": "starting_location",
+  "locations": {
+    "cragmaw_cave_entrance": {
+      "id": "cragmaw_cave_entrance",
+      "name": "The Weeping Maw - Cavern Entrance",
+      "region": "Neverwinter Wood foothills",
+      "environment": "Dim subterranean cavern mouth, dripping cold moisture",
+      "sensory_details": "The rhythmic ping of water falling from stone spikes. Cold subterranean air carrying the stench of damp hides, rotting offal, and woodsmoke.",
+      "lighting": "Dim light near the mouth, complete darkness beyond 30 feet into the interior.",
+      "visible_npcs": [
+        "droop_goblin_sentry",
+        "grik_bugbear_guard"
+      ],
+      "hidden_elements": "A concealed tripwire connected to heavy rocks above the threshold (Perception DC 14 to spot).",
+      "exits": [
+        "deep_tunnel_west",
+        "forest_path_south"
+      ]
+    },
+    "deep_tunnel_west": {
+      "id": "deep_tunnel_west",
+      "name": "The Kennel & Stream Chasm",
+      "region": "Interior Caverns",
+      "environment": "A natural limestone cave echoing with the guttural snarls of chained wolves.",
+      "sensory_details": "Fierce growls and rattling iron chains echo against damp stone.",
+      "lighting": "Pitch darkness.",
+      "visible_npcs": [
+        "chained_wolves"
+      ],
+      "hidden_elements": "A natural chimney leading up to the chief's sanctuary.",
+      "exits": [
+        "cragmaw_cave_entrance",
+        "goblin_barracks"
+      ]
+    },
+    "starting_location": {
+      "id": "starting_location",
+      "name": "The Crag of Whispers - Netherese Excavation Site",
+      "region": "Primary Adventure Hub",
+      "environment": "Rain-slicked grey granite ruins jut from the pine-shrouded ridge of the Sword Mountains. Fallen columns carved with floating Netherese glyphs lie half-buried in brambles, while a collapsed stone stairway descends into a subterranean burial vault.",
+      "sensory_details": "Rain-slicked grey granite ruins jut from the pine-shrouded ridge of the Sword Mountains. Fallen columns carved with floating Netherese glyphs lie half-buried in brambles, while a collapsed stone stairway descends into a subterranean burial vault.",
+      "lighting": "Atmospheric ambient lighting",
+      "visible_npcs": [],
+      "exits": [
+        "outer_realm",
+        "interior_quarters"
+      ]
+    }
+  },
+  "npcs": {
+    "droop_goblin_sentry": {
+      "id": "droop_goblin_sentry",
+      "name": "Droop the Sentry",
+      "race": "Goblin",
+      "faction": "Cragmaw Clan",
+      "disposition": "Terrified, cowardly, looking for a way out",
+      "ac": 12,
+      "hp": 7,
+      "description": "A scrawny goblin with oversized ears, clad in patched rags. He clutches a notched shortbow with trembling hands, glancing nervously toward the bugbear."
+    },
+    "grik_bugbear_guard": {
+      "id": "grik_bugbear_guard",
+      "name": "Grik Skullsplitter",
+      "race": "Bugbear",
+      "faction": "Cragmaw Clan",
+      "disposition": "Cruel, vigilant, arrogant",
+      "ac": 15,
+      "hp": 27,
+      "description": "A hulking, muscular brute covered in coarse brown fur. A morningstar rests across his knees as he carves a bone with a cruel dagger."
+    },
+    "chained_wolves": {
+      "id": "chained_wolves",
+      "name": "Three Starving Wolves",
+      "race": "Beast",
+      "faction": "Hostile beasts",
+      "disposition": "Ravenous, aggressive",
+      "ac": 13,
+      "hp": 11,
+      "description": "Three lean grey wolves secured to iron pitons driven into the stone floor."
+    }
+  },
+  "factions": {
+    "Cragmaw Clan": "A loose alliance of goblinoids raiding the High Road between Neverwinter and Waterdeep under Chief Grol.",
+    "Lords' Alliance": "A coalition of rulers from cities across the Sword Coast seeking peace and trade security."
+  },
+  "narrative_tone": "Authentic D&D 5e High Fantasy Adventure. Ancient Netherese ruins, perilous wilderness trails, and high-stakes faction intrigue with visceral danger and tactical realism.",
+  "world_setting": "standard forgotten realms classic dnd 5e",
+  "main_storyline": {
+    "central_conflict": "A rogue faction of Zhentarim mercenaries has unsealed a buried Netherese vault beneath the Sword Coast, seeking an ancient mythallar cipher capable of siphoning magic from regional leylines. For HALP, this crisis is deeply personal: HALP was suddenly teleported to a fantasy realm. He helped that world's \"main character\" win, only to be instantly thrown into a new reality with his stats and gear wiped to zero.\n\nHe realized his curse: he is a wanderer forced to aid heroes across the multiverse. After every completed quest\u2014even when he once tried helping a villain instead\u2014he is ripped away. Though his items reset, his mind retains it all. Across countless lives, HALP has mastered legendary martial arts and fused universal arcane secrets into his own deadly, chaotic magic style.\n\nRecently, the cycle broke. For the first time ever, HALP and his hero were defeated. Expecting death, he was instead pulled into this world. Armed with lifetimes of experience, HALP senses a profound shift. After an eternity as the sidekick, he believes this realm is where his endless loop will finally end..",
+    "antagonist": "Varek Stonegaze, a ruthless Zhentarim spellblade leading the excavation.",
+    "active_threat": "Hobgoblin reavers patrolling the perimeter ridge and unstable arcane leyline surges discharging from the lower vault.",
+    "act_1": "Breach the outer perimeter of the Crag, neutralize the sentries, and secure the vault threshold. Driven by your past (HALP was suddenly teleported to a fantasy realm. He helped t...), you press forward.",
+    "act_2": "Navigate the trapped Netherese labyrinth, solve the arcane lockstones, and prevent the cipher's extraction.",
+    "act_3": "Confront Varek Stonegaze atop the ancient skyward dais before he activates the Netherese siphon."
+  }
+}

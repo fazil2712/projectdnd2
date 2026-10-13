@@ -1,0 +1,200 @@
+{
+  "name": "HALP",
+  "character_class": "Wizard",
+  "subclass": null,
+  "level": 1,
+  "race": "Human",
+  "alignment": "chotic neutral",
+  "background": "wanderer",
+  "backstory": "HALP was suddenly teleported to a fantasy realm. He helped that world's \"main character\" win, only to be instantly thrown into a new reality with his stats and gear wiped to zero.\n\nHe realized his curse: he is a wanderer forced to aid heroes across the multiverse. After every completed quest—even when he once tried helping a villain instead—he is ripped away. Though his items reset, his mind retains it all. Across countless lives, HALP has mastered legendary martial arts and fused universal arcane secrets into his own deadly, chaotic magic style.\n\nRecently, the cycle broke. For the first time ever, HALP and his hero were defeated. Expecting death, he was instead pulled into this world. Armed with lifetimes of experience, HALP senses a profound shift. After an eternity as the sidekick, he believes this realm is where his endless loop will finally end.",
+  "racial_traits": [
+    "Versatile Adaptation: Extra skill proficiency and versatile training.",
+    "Resourceful: Driven and ambitious, adaptable to any climate or discipline."
+  ],
+  "abilities": {
+    "strength": 10,
+    "dexterity": 10,
+    "constitution": 18,
+    "intelligence": 18,
+    "wisdom": 18,
+    "charisma": 10
+  },
+  "max_hp": 10,
+  "current_hp": 10,
+  "temp_hp": 0,
+  "hit_dice_max": 1,
+  "hit_dice_current": 1,
+  "hit_die_type": "d6",
+  "death_saves": {
+    "successes": 0,
+    "failures": 0
+  },
+  "saving_throw_proficiencies": [
+    "dexterity",
+    "intelligence"
+  ],
+  "skill_proficiencies": [
+    "stealth",
+    "sleight_of_hand",
+    "investigation",
+    "perception",
+    "deception"
+  ],
+  "skill_expertise": [
+    "stealth",
+    "sleight_of_hand"
+  ],
+  "spellcasting_ability": "intelligence",
+  "known_spells": [
+    "Mage Hand Legerdemain",
+    "Disguise Self",
+    "Charm Person"
+  ],
+  "spell_slots": {
+    "level_1": {
+      "max_slots": 2,
+      "used_slots": 0
+    },
+    "level_2": {
+      "max_slots": 0,
+      "used_slots": 0
+    },
+    "level_3": {
+      "max_slots": 0,
+      "used_slots": 0
+    },
+    "level_4": {
+      "max_slots": 0,
+      "used_slots": 0
+    },
+    "level_5": {
+      "max_slots": 0,
+      "used_slots": 0
+    },
+    "level_6": {
+      "max_slots": 0,
+      "used_slots": 0
+    },
+    "level_7": {
+      "max_slots": 0,
+      "used_slots": 0
+    },
+    "level_8": {
+      "max_slots": 0,
+      "used_slots": 0
+    },
+    "level_9": {
+      "max_slots": 0,
+      "used_slots": 0
+    }
+  },
+  "inventory": [
+    {
+      "id": "item_staff",
+      "name": "Arcane Quarterstaff",
+      "quantity": 1,
+      "weight_lbs": 4.0,
+      "item_type": "weapon",
+      "equipped": true,
+      "damage": "1d6",
+      "damage_type": "bludgeoning",
+      "armor_base": null,
+      "armor_category": null,
+      "properties": [
+        "versatile"
+      ],
+      "description": null
+    },
+    {
+      "id": "item_robes",
+      "name": "Scholar's Robes",
+      "quantity": 1,
+      "weight_lbs": 3.0,
+      "item_type": "gear",
+      "equipped": true,
+      "damage": null,
+      "damage_type": null,
+      "armor_base": null,
+      "armor_category": null,
+      "properties": [],
+      "description": null
+    },
+    {
+      "id": "item_focus",
+      "name": "Crystal Arcane Focus",
+      "quantity": 1,
+      "weight_lbs": 1.0,
+      "item_type": "gear",
+      "equipped": true,
+      "damage": null,
+      "damage_type": null,
+      "armor_base": null,
+      "armor_category": null,
+      "properties": [],
+      "description": null
+    },
+    {
+      "id": "item_pot",
+      "name": "Potion of Healing",
+      "quantity": 2,
+      "weight_lbs": 0.5,
+      "item_type": "potion",
+      "equipped": false,
+      "damage": null,
+      "damage_type": null,
+      "armor_base": null,
+      "armor_category": null,
+      "properties": [
+        "consumable"
+      ],
+      "description": null
+    }
+  ],
+  "conditions": [],
+  "speed_feet": 30,
+  "darkvision_feet": 0,
+  "proficiency_bonus": 2,
+  "ability_modifiers": {
+    "strength": 0,
+    "dexterity": 0,
+    "constitution": 4,
+    "intelligence": 4,
+    "wisdom": 4,
+    "charisma": 0
+  },
+  "saving_throw_bonuses": {
+    "strength": 0,
+    "dexterity": 2,
+    "constitution": 4,
+    "intelligence": 6,
+    "wisdom": 4,
+    "charisma": 0
+  },
+  "skill_bonuses": {
+    "athletics": 0,
+    "acrobatics": 0,
+    "sleight_of_hand": 4,
+    "stealth": 4,
+    "arcana": 4,
+    "history": 4,
+    "investigation": 6,
+    "nature": 4,
+    "religion": 4,
+    "animal_handling": 4,
+    "insight": 4,
+    "medicine": 4,
+    "perception": 6,
+    "survival": 4,
+    "deception": 2,
+    "intimidation": 0,
+    "performance": 0,
+    "persuasion": 0
+  },
+  "passive_perception": 16,
+  "armor_class": 10,
+  "spell_save_dc": 14,
+  "spell_attack_bonus": 6,
+  "total_weight_carried": 9.0,
+  "carrying_capacity_lbs": 150.0,
+  "is_encumbered": false
+}
