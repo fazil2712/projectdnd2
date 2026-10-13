@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { User, Sparkles, AlertOctagon, Compass, MapPin, Users, Bookmark, Info } from 'lucide-react';
+import { User, Sparkles, AlertOctagon, Compass, MapPin, Users, Bookmark, Info, Moon, Sun, ShieldAlert } from 'lucide-react';
 import { NarrativeEntry } from '../types/game';
 import { DiceTray } from './DiceTray';
 import { EnemyAttackCard, HazardDamageCard, EncounterBanner } from './CombatCard';
@@ -274,6 +274,130 @@ export const NarrativeLog: React.FC<NarrativeLogProps> = ({
               {entry.metadata.npc.note && (
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                   {entry.metadata.npc.note}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        if (entry.metadata?.rest) {
+          const rest = entry.metadata.rest;
+          const isLong = rest.rest_type === 'long';
+          return (
+            <div
+              key={entry.id}
+              className="narrative-entry-anim"
+              style={{
+                alignSelf: 'stretch',
+                backgroundColor: 'var(--bg-card)',
+                borderLeft: isLong ? '3px solid var(--accent-gold)' : '3px solid var(--accent-cyan)',
+                borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+                padding: '12px 16px',
+                margin: '8px 0',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                {isLong ? <Sun size={16} color="var(--accent-gold)" /> : <Moon size={16} color="var(--accent-cyan)" />}
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: isLong ? 'var(--accent-gold)' : 'var(--accent-cyan)',
+                  }}
+                >
+                  {isLong ? 'Long Rest Completed (8 Hours)' : 'Short Rest Completed (1 Hour)'}
+                </span>
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                {rest.summary}
+              </div>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                <span>
+                  HP Healed: <strong style={{ color: 'var(--accent-green)' }}>+{rest.healed}</strong>
+                </span>
+                <span>
+                  Current HP: <strong>{rest.current_hp}</strong>
+                </span>
+                {rest.hit_dice_remaining !== undefined && (
+                  <span>
+                    Hit Dice Left: <strong>{rest.hit_dice_remaining}</strong>
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        if (entry.metadata?.spell_cast) {
+          const sc = entry.metadata.spell_cast;
+          return (
+            <div
+              key={entry.id}
+              className="narrative-entry-anim"
+              style={{
+                alignSelf: 'stretch',
+                backgroundColor: 'var(--bg-card)',
+                borderLeft: '3px solid var(--accent-cyan)',
+                borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+                padding: '12px 16px',
+                margin: '8px 0',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <Sparkles size={15} color="var(--accent-cyan)" />
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: 'var(--accent-cyan)',
+                  }}
+                >
+                  Spell Cast: {sc.spell_name} (Level {sc.level})
+                </span>
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                {sc.summary}
+              </div>
+            </div>
+          );
+        }
+
+        if (entry.metadata?.condition) {
+          const cond = entry.metadata.condition;
+          const isAdd = cond.action === 'add';
+          return (
+            <div
+              key={entry.id}
+              className="narrative-entry-anim"
+              style={{
+                alignSelf: 'stretch',
+                backgroundColor: 'var(--bg-card)',
+                borderLeft: isAdd ? '3px solid var(--accent-crimson)' : '3px solid var(--accent-green)',
+                borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+                padding: '10px 14px',
+                margin: '6px 0',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldAlert size={15} color={isAdd ? 'var(--accent-crimson)' : 'var(--accent-green)'} />
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: isAdd ? 'var(--accent-crimson)' : 'var(--accent-green)',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Condition {isAdd ? 'Afflicted' : 'Removed'}: {cond.condition}
+                </span>
+              </div>
+              {cond.reason && (
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  {cond.reason}
                 </div>
               )}
             </div>

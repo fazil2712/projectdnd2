@@ -9,6 +9,8 @@ from app.engine.rules import (
     apply_damage,
     apply_heal,
     resolve_enemy_attack,
+    resolve_rest,
+    resolve_spell_cast,
 )
 from app.memory.lore_manager import LoreManager
 from app.llm.parser import StreamParser
@@ -696,6 +698,237 @@ async def test_lore_manager_narrative_and_encounter_lifecycle(tmp_path):
     context = await lore.format_targeted_context()
     assert "Act 2/3" in context
     assert "Dunstan" in context
+
+
+def test_resolve_short_rest():
+    char = Character(
+        abilities=AbilityScores(constitution=14),  # CON mod +2
+        current_hp=10,
+        max_hp=30,
+        level=3,
+        hit_dice_remaining=2,
+        hit_dice="1d8",
+    )
+
+    res = resolve_rest(char, rest_type="short", dice_to_spend=1)
+    assert res["rest_type"] == "short"
+    assert res["dice_spent"] == 1
+    assert res["hit_dice_remaining"] == 1
+    assert char.hit_dice_remaining == 1
+    # Minimum heal is 1 + CON mod (2) = 3
+    assert res["healed"] >= 3
+    assert char.current_hp == 10 + res["healed"]
+
+    # Exhaust remaining hit dice
+    res2 = resolve_rest(char, rest_type="short", dice_to_spend=1)
+    assert res2["hit_dice_remaining"] == 0
+    assert char.hit_dice_remaining == 0
+
+    # Attempt to rest with 0 hit dice
+    res3 = resolve_rest(char, rest_type="short", dice_to_spend=1)
+    assert res3["healed"] == 0
+    assert "No Hit Dice remaining" in res3["reason"]
+
+
+def test_resolve_long_rest():
+    char = Character(
+        current_hp=5,
+        max_hp=28,
+        level=4,
+        hit_dice_remaining=0,
+        hit_dice_max=4,
+        conditions=["Poisoned", "Frightened"],
+    )
+    # Expended spell slots
+    char.spell_slots.level_1.used_slots = 3
+    char.spell_slots.level_2.used_slots = 2
+
+    res = resolve_rest(char, rest_type="long")
+    assert res["rest_type"] == "long"
+    assert res["current_hp"] == 28
+    assert char.current_hp == 28
+    # Regains at least half max hit dice (4 // 2 = 2)
+    assert char.hit_dice_remaining == 2
+    assert res["hit_dice_remaining"] == 2
+    # Spell slots renewed
+    assert char.spell_slots.level_1.used_slots == 0
+    assert char.spell_slots.level_2.used_slots == 0
+    # Temporary conditions cleared
+    assert "Poisoned" not in char.conditions
+    assert "Frightened" not in char.conditions
+
+
+def test_resolve_spell_cast_healing():
+    char = Character(
+        abilities=AbilityScores(wisdom=16),  # WIS mod +3
+        spellcasting_ability="wisdom",
+        current_hp=10,
+        max_hp=25,
+        level=3,
+    )
+    char.spell_slots.level_1.max_slots = 4
+    char.spell_slots.level_1.used_slots = 0
+
+    spell = {
+        "name": "Cure Wounds",
+        "level": 1,
+        "healing": "1d8",
+        "school": "Evocation",
+    }
+
+    res = resolve_spell_cast(char, spell, slot_level=1)
+    assert res["success"] is True
+    assert res["is_healing"] is True
+    assert res["heal_amount"] >= 4  # 1d8 (min 1) + 3 mod
+    assert char.current_hp == 10 + res["heal_amount"]
+    assert char.spell_slots.level_1.used_slots == 1
+
+
+def test_resolve_spell_cast_damage():
+    char = Character(
+        abilities=AbilityScores(intelligence=16),  # INT mod +3
+        spellcasting_ability="intelligence",
+        level=3,
+    )
+    char.spell_slots.level_2.max_slots = 2
+    char.spell_slots.level_2.used_slots = 0
+
+    spell = {
+        "name": "Scorching Ray",
+        "level": 2,
+        "damage": "2d6 fire",
+        "school": "Evocation",
+    }
+
+    res = resolve_spell_cast(char, spell, slot_level=2)
+    assert res["success"] is True
+    assert res["is_damage"] is True
+    assert res["damage_type"] == "fire"
+    assert 2 <= res["damage_total"] <= 12
+    assert char.spell_slots.level_2.used_slots == 1
+
+
+def test_resolve_spell_cast_slot_exhaustion():
+    char = Character(level=1)
+    char.spell_slots.level_1.max_slots = 1
+    char.spell_slots.level_1.used_slots = 1
+
+    spell = {
+        "name": "Magic Missile",
+        "level": 1,
+        "damage": "3d4+3 force",
+    }
+
+    res = resolve_spell_cast(char, spell, slot_level=1)
+    assert res["success"] is False
+    assert "no level 1 spell slots remaining" in res["summary"]
+
+
+def test_conditions_disadvantage_and_advantage():
+    # 1. Poisoned grants disadvantage on ability/skill checks
+    poisoned_char = Character(
+        abilities=AbilityScores(dexterity=14),
+        conditions=["Poisoned"],
+    )
+    check_res = resolve_check(
+        character=poisoned_char,
+        check_type="skill",
+        target="stealth",
+        dc=10,
+    )
+    assert check_res["roll"]["disadvantage"] is True
+
+    # 2. Restrained imposes disadvantage on attacks and DEX saves
+    restrained_char = Character(
+        abilities=AbilityScores(strength=14, dexterity=14),
+        conditions=["Restrained"],
+    )
+    atk_res = resolve_check(
+        character=restrained_char,
+        check_type="attack",
+        target="strength",
+        dc=12,
+    )
+    assert atk_res["roll"]["disadvantage"] is True
+
+    dex_save_res = resolve_check(
+        character=restrained_char,
+        check_type="save",
+        target="dexterity",
+        dc=12,
+    )
+    assert dex_save_res["roll"]["disadvantage"] is True
+
+    # 3. Paralyzed auto-fails STR and DEX saves
+    paralyzed_char = Character(
+        abilities=AbilityScores(strength=18, dexterity=18),
+        conditions=["Paralyzed"],
+    )
+    str_save_res = resolve_check(
+        character=paralyzed_char,
+        check_type="save",
+        target="strength",
+        dc=10,
+    )
+    assert str_save_res["success"] is False
+    assert "AUTO-FAIL" in str_save_res["crit_note"]
+
+    # 4. Enemy attack has advantage against a Prone player
+    prone_char = Character(
+        abilities=AbilityScores(dexterity=10),
+        armor_class=12,
+        current_hp=20,
+        max_hp=20,
+        conditions=["Prone"],
+    )
+    enemy_atk = resolve_enemy_attack(
+        character=prone_char,
+        attacker="Bandit",
+        attack_bonus=3,
+        damage_formula="1d6",
+    )
+    assert enemy_atk["roll"]["advantage"] is True
+
+
+@pytest.mark.asyncio
+async def test_parser_rest_spell_condition_tags():
+    parser = StreamParser()
+
+    async def token_gen():
+        tokens = [
+            "You gather around the fire and rest. ",
+            '<REST_COMPLETE type="short" dice="2"/>',
+            " Feeling renewed, you cast a spell: ",
+            '<SPELL_CAST name="Shield" level="1"/>',
+            " Suddenly, a poisonous barb strikes you! ",
+            '<CONDITION_UPDATE action="add" condition="Poisoned" reason="Spider venom"/>',
+            " End of turn.",
+        ]
+        for t in tokens:
+            yield t
+
+    events = []
+    async for ev in parser.process_token_stream(token_gen()):
+        events.append(ev)
+
+    types = [e["type"] for e in events]
+    assert "rest_completed" in types
+    assert "spell_cast" in types
+    assert "condition_updated" in types
+
+    rest_event = next(e for e in events if e["type"] == "rest_completed")
+    assert rest_event["rest"]["type"] == "short"
+    assert rest_event["rest"]["dice"] == 2
+
+    spell_event = next(e for e in events if e["type"] == "spell_cast")
+    assert spell_event["spell"]["name"] == "Shield"
+    assert spell_event["spell"]["level"] == 1
+
+    cond_event = next(e for e in events if e["type"] == "condition_updated")
+    assert cond_event["update"]["action"] == "add"
+    assert cond_event["update"]["condition"] == "Poisoned"
+    assert cond_event["update"]["reason"] == "Spider venom"
+
 
 
 

@@ -14,9 +14,30 @@ import {
   XCircle,
   Sword,
   Feather,
+  Moon,
+  Sun,
+  X,
 } from 'lucide-react';
 import { Character, InventoryItem } from '../types/game';
 import { SpellManagerModal } from './SpellManagerModal';
+
+const STANDARD_CONDITIONS = [
+  'Blinded',
+  'Charmed',
+  'Deafened',
+  'Frightened',
+  'Grappled',
+  'Incapacitated',
+  'Invisible',
+  'Paralyzed',
+  'Petrified',
+  'Poisoned',
+  'Prone',
+  'Restrained',
+  'Stunned',
+  'Unconscious',
+  'Exhaustion',
+];
 
 interface CharacterSheetProps {
   character: Character | null;
@@ -24,6 +45,9 @@ interface CharacterSheetProps {
   onToggleSlot: (level: number, slotIndex: number) => Promise<void>;
   onToggleItem: (itemId: string) => Promise<void>;
   onCharacterUpdated?: (updatedChar: Character) => void;
+  onSendAction?: (actionText: string) => void;
+  isStreaming?: boolean;
+  hasActiveCheck?: boolean;
 }
 
 export const CharacterSheet: React.FC<CharacterSheetProps> = ({
@@ -32,6 +56,9 @@ export const CharacterSheet: React.FC<CharacterSheetProps> = ({
   onToggleSlot,
   onToggleItem,
   onCharacterUpdated,
+  onSendAction,
+  isStreaming = false,
+  hasActiveCheck = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'inventory' | 'spells' | 'skills' | 'traits'>('inventory');
   const [hpInput, setHpInput] = useState<string>('1');
@@ -62,6 +89,24 @@ export const CharacterSheet: React.FC<CharacterSheetProps> = ({
     const val = parseInt(hpInput, 10);
     if (!isNaN(val) && val > 0) {
       onModifyHp(isDamage ? -val : val);
+    }
+  };
+
+  const handleConditionChange = async (condition: string, action: 'add' | 'remove') => {
+    try {
+      const res = await fetch('/api/game/character/conditions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ condition, action }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.character && onCharacterUpdated) {
+          onCharacterUpdated(data.character);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update condition:', err);
     }
   };
 
@@ -318,6 +363,165 @@ export const CharacterSheet: React.FC<CharacterSheetProps> = ({
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Rest & Hit Dice Bar */}
+        <div
+          style={{
+            marginTop: '10px',
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '8px 10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+              Hit Dice:
+            </span>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-gold)' }}>
+              {character.hit_dice_remaining ?? character.level} / {character.hit_dice_max ?? character.level}
+            </span>
+            <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+              ({character.hit_dice || 'd8'})
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{
+                padding: '3px 8px',
+                fontSize: '11px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: 'var(--accent-cyan)',
+              }}
+              disabled={isStreaming || hasActiveCheck}
+              onClick={() => onSendAction?.('[REST REQUEST: SHORT] I look for a defensible spot to take a 1-hour Short Rest and tend to my wounds.')}
+              title="Take a 1-hour Short Rest (spends Hit Dice to heal)"
+            >
+              <Moon size={12} />
+              <span>Short Rest (1h)</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{
+                padding: '3px 8px',
+                fontSize: '11px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: 'var(--accent-gold)',
+              }}
+              disabled={isStreaming || hasActiveCheck}
+              onClick={() => onSendAction?.('[REST REQUEST: LONG] I attempt to make camp and take an 8-hour Long Rest.')}
+              title="Take an 8-hour Long Rest (restores HP, spell slots, half Hit Dice)"
+            >
+              <Sun size={12} />
+              <span>Long Rest (8h)</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Active Conditions Section */}
+        <div
+          style={{
+            marginTop: '10px',
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '8px 10px',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: character.conditions && character.conditions.length > 0 ? '6px' : 0,
+            }}
+          >
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+              Conditions {character.conditions?.length ? `(${character.conditions.length})` : ''}
+            </span>
+            <select
+              value=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleConditionChange(e.target.value, 'add');
+                }
+              }}
+              style={{
+                fontSize: '10px',
+                padding: '2px 6px',
+                backgroundColor: 'var(--bg-canvas)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-secondary)',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="">+ Add Condition</option>
+              {STANDARD_CONDITIONS.filter(
+                (c) => !(character.conditions || []).map((x) => x.toLowerCase()).includes(c.toLowerCase())
+              ).map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {character.conditions && character.conditions.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+              {character.conditions.map((cond) => (
+                <span
+                  key={cond}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '11px',
+                    padding: '2px 6px',
+                    backgroundColor: 'var(--accent-crimson-dim)',
+                    color: 'var(--accent-crimson)',
+                    border: '1px solid var(--accent-crimson)',
+                    borderRadius: '10px',
+                    fontWeight: 600,
+                  }}
+                >
+                  {cond}
+                  <button
+                    type="button"
+                    onClick={() => handleConditionChange(cond, 'remove')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--accent-crimson)',
+                      cursor: 'pointer',
+                      padding: 0,
+                      fontSize: '12px',
+                      lineHeight: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                    title={`Remove ${cond}`}
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Ability Scores Grid */}
@@ -675,9 +879,27 @@ export const CharacterSheet: React.FC<CharacterSheetProps> = ({
                         fontSize: '12px',
                         color: 'var(--text-primary)',
                         border: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                       }}
                     >
-                      ✨ {spell}
+                      <span>✨ {spell}</span>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{
+                          fontSize: '10px',
+                          padding: '2px 8px',
+                          color: 'var(--accent-cyan)',
+                          borderColor: 'var(--accent-cyan-dim)',
+                        }}
+                        disabled={isStreaming || hasActiveCheck}
+                        onClick={() => onSendAction?.(`[SPELL CAST] I cast ${spell}!`)}
+                        title="Cast this spell"
+                      >
+                        Cast
+                      </button>
                     </div>
                   ))
                 ) : (
@@ -869,6 +1091,12 @@ export const CharacterSheet: React.FC<CharacterSheetProps> = ({
               onCharacterUpdated(updatedChar);
             }
           }}
+          onCastSpell={(spellName) => {
+            setIsSpellManagerOpen(false);
+            onSendAction?.(`[SPELL CAST] I cast ${spellName}!`);
+          }}
+          isStreaming={isStreaming}
+          hasActiveCheck={hasActiveCheck}
         />
       )}
     </div>

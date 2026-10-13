@@ -1,3 +1,4 @@
+import re
 from typing import Dict, List, Optional, Tuple, Any
 from .character import Character, InventoryItem, SKILL_TO_ABILITY
 from .dice import roll_d20, roll_dice
@@ -52,32 +53,84 @@ def resolve_check(
             modifier = character.ability_modifiers.get(clean_target, 0)
             resolved_name = clean_target.title() + " Save"
 
-    elif check_type == "attack":
-        # Check equipped weapon
-        weapon = next(
-            (i for i in character.inventory if normalize_identifier(i.name) == clean_target and i.item_type == "weapon"),
-            None
-        )
-        if not weapon:
-            # First equipped weapon
-            weapon = next((i for i in character.inventory if i.item_type == "weapon" and i.equipped), None)
+    elif check_type in ("spell", "spell_attack"):
+        modifier = character.spell_attack_bonus or (character.ability_modifiers.get((character.spellcasting_ability or "intelligence").lower(), 0) + character.proficiency_bonus)
+        resolved_name = f"{target.title()} Spell Attack"
 
-        if weapon:
-            is_finesse_or_ranged = any(p.lower() in ["finesse", "ranged", "range"] for p in weapon.properties)
-            if is_finesse_or_ranged:
-                mod_stat = max(character.ability_modifiers["strength"], character.ability_modifiers["dexterity"])
-            else:
-                mod_stat = character.ability_modifiers["strength"]
-            modifier = mod_stat + character.proficiency_bonus
-            resolved_name = f"{weapon.name} Attack"
+    elif check_type == "attack":
+        # Check if target is a known spell first
+        if any(normalize_identifier(s) == clean_target for s in character.known_spells):
+            modifier = character.spell_attack_bonus or (character.ability_modifiers.get((character.spellcasting_ability or "intelligence").lower(), 0) + character.proficiency_bonus)
+            resolved_name = f"{target.title()} Spell Attack"
         else:
-            # Unarmed strike
-            modifier = character.ability_modifiers["strength"] + character.proficiency_bonus
-            resolved_name = "Unarmed Strike"
+            # Check equipped weapon
+            weapon = next(
+                (i for i in character.inventory if normalize_identifier(i.name) == clean_target and i.item_type == "weapon"),
+                None
+            )
+            if not weapon:
+                # First equipped weapon
+                weapon = next((i for i in character.inventory if i.item_type == "weapon" and i.equipped), None)
+
+            if weapon:
+                is_finesse_or_ranged = any(p.lower() in ["finesse", "ranged", "range"] for p in weapon.properties)
+                if is_finesse_or_ranged:
+                    mod_stat = max(character.ability_modifiers["strength"], character.ability_modifiers["dexterity"])
+                else:
+                    mod_stat = character.ability_modifiers["strength"]
+                modifier = mod_stat + character.proficiency_bonus
+                resolved_name = f"{weapon.name} Attack"
+            else:
+                # Unarmed strike
+                modifier = character.ability_modifiers["strength"] + character.proficiency_bonus
+                resolved_name = "Unarmed Strike"
 
     else:  # Raw ability
         modifier = character.ability_modifiers.get(clean_target, 0)
         resolved_name = clean_target.title() + " Check"
+
+    # Evaluate 5e status conditions on checks & saves
+    conds = [c.lower() for c in character.conditions]
+
+    # Paralyzed or Stunned: automatically fail Strength and Dexterity saving throws
+    if any(c in conds for c in ["paralyzed", "stunned"]) and check_type == "save" and clean_target in ["str", "dex", "strength", "dexterity"]:
+        roll_result = roll_d20(modifier=modifier, advantage=False, disadvantage=True)
+        active_conds = [c.capitalize() for c in conds if c in ["paralyzed", "stunned"]]
+        return {
+            "check_type": check_type,
+            "target": target,
+            "resolved_name": resolved_name,
+            "dc": dc,
+            "modifier": modifier,
+            "roll": roll_result,
+            "success": False,
+            "margin": -dc,
+            "crit_note": f"AUTO-FAIL ({'/'.join(active_conds)})",
+            "mechanical_summary": f"[MECHANICAL RESOLUTION: Check={resolved_name} | DC/AC={dc} | AUTO-FAIL due to condition: {'/'.join(active_conds)}]",
+        }
+
+    cond_disadvantage = False
+    cond_reasons = []
+
+    # Poisoned or Frightened: disadvantage on ability checks and attack rolls
+    if "poisoned" in conds and check_type in ["skill", "ability", "attack", "spell", "spell_attack"]:
+        cond_disadvantage = True
+        cond_reasons.append("Poisoned")
+    if "frightened" in conds and check_type in ["skill", "ability", "attack", "spell", "spell_attack"]:
+        cond_disadvantage = True
+        cond_reasons.append("Frightened")
+
+    # Blinded, Prone, or Restrained: disadvantage on attack rolls
+    if any(c in conds for c in ["blinded", "prone", "restrained"]) and check_type in ["attack", "spell", "spell_attack"]:
+        cond_disadvantage = True
+        cond_reasons.append("Blinded/Prone/Restrained")
+
+    # Restrained: disadvantage on Dexterity saving throws
+    if "restrained" in conds and check_type == "save" and clean_target in ["dex", "dexterity"]:
+        cond_disadvantage = True
+        cond_reasons.append("Restrained")
+
+    effective_disadvantage = disadvantage or cond_disadvantage
 
     # Check for innate racial advantages (silent mechanical benefits)
     race_lower = (character.race or "").lower()
@@ -100,9 +153,11 @@ def resolve_check(
 
     effective_advantage = advantage or racial_advantage
 
-    roll_result = roll_d20(modifier=modifier, advantage=effective_advantage, disadvantage=disadvantage)
+    roll_result = roll_d20(modifier=modifier, advantage=effective_advantage, disadvantage=effective_disadvantage)
     if racial_reason:
         roll_result["racial_advantage"] = racial_reason
+    if cond_reasons:
+        roll_result["condition_disadvantage"] = ", ".join(cond_reasons)
 
     total = roll_result["total"]
     raw = roll_result["selected_raw"]
@@ -334,7 +389,12 @@ def resolve_enemy_attack(
     - Normal hit: Total >= character.armor_class.
     - On hit: Deducts damage via apply_damage(character, ...).
     """
-    roll = roll_d20(modifier=attack_bonus, advantage=advantage, disadvantage=disadvantage)
+    # Attacker gains advantage if target character is blinded, paralyzed, restrained, stunned, or prone
+    conds = [c.lower() for c in character.conditions]
+    cond_advantage = any(c in conds for c in ["blinded", "paralyzed", "restrained", "stunned", "prone"])
+    effective_advantage = advantage or cond_advantage
+
+    roll = roll_d20(modifier=attack_bonus, advantage=effective_advantage, disadvantage=disadvantage)
     raw = roll["selected_raw"]
     target_ac = character.armor_class
 
@@ -640,5 +700,219 @@ RACE_TRAITS_5E: Dict[str, Dict[str, Any]] = {
         "advantages": "Darkvision 60ft, Hellish Resistance (fire resistance), Infernal Legacy."
     }
 }
+
+
+def resolve_rest(
+    character: Character,
+    rest_type: str,
+    dice_to_spend: int = 1
+) -> Dict[str, Any]:
+    """
+    Deterministically resolves a Short or Long Rest according to D&D 5e rules.
+    - Short Rest:
+      * Spend up to dice_to_spend (min 1, max character.hit_dice_remaining).
+      * Roll each hit die + CON modifier (min 1 HP per die).
+      * Apply heal to character, clamp to max_hp, deduct hit dice.
+    - Long Rest:
+      * Restores full HP (apply_heal to max_hp), clears unconscious and death saves.
+      * Resets all expended spell slots (levels 1-9 used_slots = 0).
+      * Recovers half max Hit Dice (min 1).
+      * Clears temporary status conditions (Poisoned, Frightened, Prone, Blinded, Restrained, Paralyzed, Stunned).
+    """
+    clean_type = rest_type.strip().lower()
+
+    if clean_type == "short":
+        remaining = getattr(character, "hit_dice_remaining", getattr(character, "hit_dice_current", character.level))
+        if remaining <= 0:
+            return {
+                "rest_type": "short",
+                "healed": 0,
+                "reason": "No Hit Dice remaining",
+                "dice_spent": 0,
+                "hit_dice_remaining": 0,
+                "current_hp": character.current_hp,
+                "max_hp": character.max_hp,
+                "summary": f"Short Rest failed: {character.name} has no Hit Dice remaining (0/{character.hit_dice_max})."
+            }
+
+        spent = min(max(1, int(dice_to_spend)), remaining)
+        die_str = getattr(character, "hit_die_type", getattr(character, "hit_dice", "d8"))
+        m = re.search(r"d(\d+)", str(die_str))
+        sides = int(m.group(1)) if m else 8
+
+        con_mod = character.ability_modifiers.get("constitution", 0)
+        total_healed = 0
+        rolls_detail = []
+
+        for _ in range(spent):
+            roll_res = roll_dice(f"1d{sides}")
+            die_hp = max(1, roll_res["total"] + con_mod)
+            total_healed += die_hp
+            rolls_detail.append(f"d{sides}({roll_res['rolls'][0]}){con_mod:+d}={die_hp}")
+
+        prior_hp = character.current_hp
+        apply_heal(character, total_healed)
+        actual_healed = character.current_hp - prior_hp
+
+        new_remaining = remaining - spent
+        character.hit_dice_remaining = new_remaining
+        character.hit_dice_current = new_remaining
+
+        return {
+            "rest_type": "short",
+            "dice_spent": spent,
+            "hit_dice_remaining": new_remaining,
+            "hit_dice_max": character.hit_dice_max,
+            "healed": actual_healed,
+            "rolls": rolls_detail,
+            "current_hp": character.current_hp,
+            "max_hp": character.max_hp,
+            "summary": (
+                f"Short Rest (1 hour) completed: spent {spent} Hit Die ({die_str}), "
+                f"healed {actual_healed} HP ({', '.join(rolls_detail)}). "
+                f"Current HP: {character.current_hp}/{character.max_hp}. "
+                f"Hit Dice remaining: {new_remaining}/{character.hit_dice_max}."
+            )
+        }
+
+    else:  # Long Rest
+        # 1. Full HP heal & clear death saves
+        apply_heal(character, character.max_hp)
+
+        # 2. Reset spell slots
+        for lvl in range(1, 10):
+            slot = getattr(character.spell_slots, f"level_{lvl}", None)
+            if slot:
+                slot.used_slots = 0
+
+        # 3. Recover hit dice: half max hit dice, minimum 1
+        max_hd = character.hit_dice_max or character.level
+        curr_hd = getattr(character, "hit_dice_remaining", getattr(character, "hit_dice_current", character.level))
+        recovered_hd = max(1, character.level // 2)
+        new_hd = min(max_hd, curr_hd + recovered_hd)
+        character.hit_dice_remaining = new_hd
+        character.hit_dice_current = new_hd
+
+        # 4. Clear temporary status conditions
+        temp_conditions = {"poisoned", "frightened", "prone", "blinded", "restrained", "paralyzed", "stunned", "exhaustion_1"}
+        character.conditions = [c for c in character.conditions if c.lower() not in temp_conditions]
+
+        return {
+            "rest_type": "long",
+            "healed": character.max_hp,
+            "current_hp": character.current_hp,
+            "max_hp": character.max_hp,
+            "hit_dice_recovered": recovered_hd,
+            "hit_dice_remaining": new_hd,
+            "hit_dice_max": max_hd,
+            "spell_slots_reset": True,
+            "conditions_cleared": True,
+            "summary": (
+                f"Long Rest (8 hours) completed: fully restored to {character.max_hp} HP. "
+                f"Recovered {recovered_hd} Hit Dice (now {new_hd}/{max_hd}). "
+                f"All spell slots renewed. Temporary status conditions cleared."
+            )
+        }
+
+
+def resolve_spell_cast(
+    character: Character,
+    spell: Dict[str, Any],
+    slot_level: Optional[int] = None,
+    is_critical: bool = False
+) -> Dict[str, Any]:
+    """
+    Deterministically resolves a spell cast according to D&D 5e rules:
+    - Consumes appropriate spell slot (if level > 0).
+    - If healing spell, rolls heal formula + spellcasting modifier and heals character.
+    - If damage spell, rolls damage formula (doubling dice if critical) and determines attack vs save DC.
+    """
+    spell_name = spell.get("name", "Unknown Spell")
+    base_level = int(spell.get("level", 0))
+    chosen_level = slot_level if slot_level is not None else base_level
+
+    # 1. Consume slot for non-cantrips
+    if chosen_level > 0:
+        slot_ok, slot_err = validate_and_consume_spell_slot(character, chosen_level)
+        if not slot_ok:
+            return {
+                "success": False,
+                "spell_name": spell_name,
+                "level": chosen_level,
+                "error": slot_err or "No spell slots remaining at that level",
+                "summary": f"Cannot cast {spell_name}: no level {chosen_level} spell slots remaining."
+            }
+
+    # Ability modifiers
+    casting_stat = (character.spellcasting_ability or "intelligence").lower()
+    spell_mod = character.ability_modifiers.get(casting_stat, 0)
+    spell_attack = character.spell_attack_bonus or (spell_mod + character.proficiency_bonus)
+    spell_dc = character.spell_save_dc or (8 + character.proficiency_bonus + spell_mod)
+
+    # 2. Check for Healing
+    healing_str = spell.get("healing", "")
+    if healing_str or ("cure" in spell_name.lower() and "wound" in spell_name.lower()) or "healing word" in spell_name.lower():
+        formula_match = re.search(r"(\d+d\d+)", healing_str)
+        formula = formula_match.group(1) if formula_match else ("1d8" if "cure" in spell_name.lower() else "1d4")
+        heal_roll = roll_dice(formula, is_critical=is_critical)
+        total_heal = max(1, heal_roll["total"] + spell_mod)
+        prior_hp = character.current_hp
+        apply_heal(character, total_heal)
+        actual_healed = character.current_hp - prior_hp
+
+        return {
+            "success": True,
+            "spell_name": spell_name,
+            "level": chosen_level,
+            "is_healing": True,
+            "heal_amount": actual_healed,
+            "formula": f"{formula}+{spell_mod}",
+            "current_hp": character.current_hp,
+            "max_hp": character.max_hp,
+            "summary": f"Cast {spell_name} (Level {chosen_level}): healed {actual_healed} HP ({formula} roll {heal_roll['total']} + {spell_mod} mod). HP: {character.current_hp}/{character.max_hp}."
+        }
+
+    # 3. Check for Damage
+    damage_str = spell.get("damage") or spell.get("damage_formula") or ""
+    if damage_str:
+        formula_match = re.search(r"(\d+d\d+(?:\s*[+-]\s*\d+)?)", damage_str)
+        formula = formula_match.group(1).replace(" ", "") if formula_match else "1d6"
+
+        type_match = re.search(r"\b(fire|cold|radiant|necrotic|force|lightning|thunder|acid|poison|psychic|slashing|piercing|bludgeoning)\b", damage_str.lower())
+        damage_type = type_match.group(1) if type_match else "magical"
+
+        dmg_roll = roll_dice(formula, is_critical=is_critical)
+        damage_total = max(1, dmg_roll["total"])
+
+        save_type = spell.get("save")
+        requires_attack = not bool(save_type) and ("magic missile" not in spell_name.lower())
+
+        return {
+            "success": True,
+            "spell_name": spell_name,
+            "level": chosen_level,
+            "is_damage": True,
+            "damage_total": damage_total,
+            "damage_type": damage_type,
+            "damage_breakdown": dmg_roll["notation"],
+            "spell_attack_bonus": spell_attack,
+            "spell_save_dc": spell_dc,
+            "save_type": save_type,
+            "requires_attack": requires_attack,
+            "summary": (
+                f"Cast {spell_name} (Level {chosen_level}): deals {damage_total} {damage_type} damage ({dmg_roll['notation']})"
+                f"{f' [Enemy DC {spell_dc} {save_type} save]' if save_type else (f' [Spell Attack +{spell_attack}]' if requires_attack else ' [Automatic Hit]')}"
+            )
+        }
+
+    # 4. Utility / Buff / Defense (Shield, Misty Step, Invisibility, etc.)
+    return {
+        "success": True,
+        "spell_name": spell_name,
+        "level": chosen_level,
+        "is_utility": True,
+        "description": spell.get("description", ""),
+        "summary": f"Cast {spell_name} (Level {chosen_level}): {spell.get('description', 'Spell invoked.')[:120]}..."
+    }
 
 

@@ -23,6 +23,9 @@ interface SpellManagerModalProps {
   character: Character;
   onClose: () => void;
   onCharacterUpdated: (updatedChar: Character) => void;
+  onCastSpell?: (spellName: string) => void;
+  isStreaming?: boolean;
+  hasActiveCheck?: boolean;
 }
 
 export const SpellManagerModal: React.FC<SpellManagerModalProps> = ({
@@ -30,6 +33,9 @@ export const SpellManagerModal: React.FC<SpellManagerModalProps> = ({
   character,
   onClose,
   onCharacterUpdated,
+  onCastSpell,
+  isStreaming = false,
+  hasActiveCheck = false,
 }) => {
   const [catalog, setCatalog] = useState<SpellCatalogItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -548,26 +554,47 @@ export const SpellManagerModal: React.FC<SpellManagerModalProps> = ({
                     </div>
 
                     {/* Action Button */}
-                    <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {isPrepared ? (
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          onClick={() => handleRemoveSpell(spell.name)}
-                          disabled={isProcessing}
-                          style={{
-                            fontSize: '11px',
-                            padding: '4px 10px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            color: 'var(--accent-crimson)',
-                            borderColor: 'var(--accent-crimson-dim)',
-                          }}
-                        >
-                          <Trash2 size={12} />
-                          <span>Unprepare</span>
-                        </button>
+                        <>
+                          {onCastSpell && (
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              onClick={() => onCastSpell(spell.name)}
+                              disabled={isProcessing || isStreaming || hasActiveCheck}
+                              style={{
+                                fontSize: '11px',
+                                padding: '4px 10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                              title="Cast this spell in narrative"
+                            >
+                              <Sparkles size={12} />
+                              <span>Cast</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => handleRemoveSpell(spell.name)}
+                            disabled={isProcessing}
+                            style={{
+                              fontSize: '11px',
+                              padding: '4px 10px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              color: 'var(--accent-crimson)',
+                              borderColor: 'var(--accent-crimson-dim)',
+                            }}
+                          >
+                            <Trash2 size={12} />
+                            <span>Unprepare</span>
+                          </button>
+                        </>
                       ) : (
                         <button
                           type="button"

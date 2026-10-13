@@ -318,6 +318,36 @@ export const App: React.FC = () => {
                   metadata: { player_damage: data.damage },
                 };
                 setEntries((prev) => [...prev, dmgEntry]);
+              } else if (currentEvent === 'rest_resolved') {
+                if (data.character) setCharacter(data.character);
+                const restEntry: NarrativeEntry = {
+                  id: `rest-${Date.now()}`,
+                  role: 'system',
+                  content: data.rest.summary || `Rest Completed: ${data.rest.rest_type === 'long' ? 'Long Rest' : 'Short Rest'}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { rest: data.rest },
+                };
+                setEntries((prev) => [...prev, restEntry]);
+              } else if (currentEvent === 'spell_cast_resolved') {
+                if (data.character) setCharacter(data.character);
+                const scEntry: NarrativeEntry = {
+                  id: `spell-cast-${Date.now()}`,
+                  role: 'system',
+                  content: data.spell_cast.summary,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { spell_cast: data.spell_cast },
+                };
+                setEntries((prev) => [...prev, scEntry]);
+              } else if (currentEvent === 'condition_updated') {
+                if (data.character) setCharacter(data.character);
+                const condEntry: NarrativeEntry = {
+                  id: `cond-${Date.now()}`,
+                  role: 'system',
+                  content: `Condition ${data.update.action === 'remove' ? 'Removed' : 'Afflicted'}: ${data.update.condition}${data.update.reason ? ` (${data.update.reason})` : ''}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { condition: data.update },
+                };
+                setEntries((prev) => [...prev, condEntry]);
               } else if (currentEvent === 'done') {
                 if (accumulatedDmText.trim()) {
                   const dmEntry: NarrativeEntry = {
@@ -547,6 +577,36 @@ export const App: React.FC = () => {
                   metadata: { player_damage: data.damage },
                 };
                 setEntries((prev) => [...prev, dmgEntry]);
+              } else if (currentEvent === 'rest_resolved') {
+                if (data.character) setCharacter(data.character);
+                const restEntry: NarrativeEntry = {
+                  id: `rest-${Date.now()}`,
+                  role: 'system',
+                  content: data.rest.summary || `Rest Completed: ${data.rest.rest_type === 'long' ? 'Long Rest' : 'Short Rest'}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { rest: data.rest },
+                };
+                setEntries((prev) => [...prev, restEntry]);
+              } else if (currentEvent === 'spell_cast_resolved') {
+                if (data.character) setCharacter(data.character);
+                const scEntry: NarrativeEntry = {
+                  id: `spell-cast-${Date.now()}`,
+                  role: 'system',
+                  content: data.spell_cast.summary,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { spell_cast: data.spell_cast },
+                };
+                setEntries((prev) => [...prev, scEntry]);
+              } else if (currentEvent === 'condition_updated') {
+                if (data.character) setCharacter(data.character);
+                const condEntry: NarrativeEntry = {
+                  id: `cond-${Date.now()}`,
+                  role: 'system',
+                  content: `Condition ${data.update.action === 'remove' ? 'Removed' : 'Afflicted'}: ${data.update.condition}${data.update.reason ? ` (${data.update.reason})` : ''}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  metadata: { condition: data.update },
+                };
+                setEntries((prev) => [...prev, condEntry]);
               } else if (currentEvent === 'done') {
                 if (accumulatedContinuation.trim()) {
                   const dmEntry: NarrativeEntry = {
@@ -741,6 +801,9 @@ export const App: React.FC = () => {
             onToggleSlot={handleToggleSlot}
             onToggleItem={handleToggleItem}
             onCharacterUpdated={(updatedChar) => setCharacter(updatedChar)}
+            onSendAction={handleSubmitAction}
+            isStreaming={isStreaming}
+            hasActiveCheck={activeCheck !== null}
           />
         </aside>
 

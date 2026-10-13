@@ -63,6 +63,18 @@ class StreamParser:
         r'(?:```(?:xml)?\s*|`\s*)?<PLAYER_DAMAGE\s+([^>]*?)(?:/>|>(?:[\s\S]*?</PLAYER_DAMAGE>)?)(?:\s*```|\s*`)?',
         re.IGNORECASE
     )
+    REST_COMPLETE_REGEX = re.compile(
+        r'(?:```(?:xml)?\s*|`\s*)?<REST_COMPLETE\s+([^>]*?)(?:/>|>(?:[\s\S]*?</REST_COMPLETE>)?)(?:\s*```|\s*`)?',
+        re.IGNORECASE
+    )
+    SPELL_CAST_REGEX = re.compile(
+        r'(?:```(?:xml)?\s*|`\s*)?<SPELL_CAST\s+([^>]*?)(?:/>|>(?:[\s\S]*?</SPELL_CAST>)?)(?:\s*```|\s*`)?',
+        re.IGNORECASE
+    )
+    CONDITION_UPDATE_REGEX = re.compile(
+        r'(?:```(?:xml)?\s*|`\s*)?<CONDITION_UPDATE\s+([^>]*?)(?:/>|>(?:[\s\S]*?</CONDITION_UPDATE>)?)(?:\s*```|\s*`)?',
+        re.IGNORECASE
+    )
 
     TAG_PATTERNS = [
         ("item_grant", ITEM_GRANT_REGEX),
@@ -75,6 +87,9 @@ class StreamParser:
         ("encounter_start", ENCOUNTER_START_REGEX),
         ("enemy_attack", ENEMY_ATTACK_REGEX),
         ("player_damage", PLAYER_DAMAGE_REGEX),
+        ("rest_complete", REST_COMPLETE_REGEX),
+        ("spell_cast", SPELL_CAST_REGEX),
+        ("condition_update", CONDITION_UPDATE_REGEX),
         ("action_reject", ACTION_REJECT_REGEX),
         ("check_request", CHECK_REQUEST_REGEX),
     ]
@@ -94,6 +109,9 @@ class StreamParser:
         "<encounter_start",
         "<enemy_attack",
         "<player_damage",
+        "<rest_complete",
+        "<spell_cast",
+        "<condition_update",
     )
 
     def __init__(self):
@@ -281,6 +299,53 @@ class StreamParser:
                             "damage_type": damage_type,
                             "reason": reason,
                         }
+                    }
+                elif tag_type == "rest_complete":
+                    rest_type = attrs.get("type", "short").lower().strip()
+                    raw_dice = attrs.get("dice", "1")
+                    try:
+                        dice = int(re.sub(r"[^\d]", "", str(raw_dice)) or 1)
+                    except (ValueError, TypeError):
+                        dice = 1
+                    yield {
+                        "type": "rest_completed",
+                        "rest": {
+                            "type": rest_type,
+                            "dice": dice,
+                        }
+                    }
+                elif tag_type == "spell_cast":
+                    name = attrs.get("name", "Unknown Spell").strip()
+                    raw_lvl = attrs.get("slot_level", attrs.get("level"))
+                    slot_level = None
+                    if raw_lvl is not None:
+                        try:
+                            slot_level = int(re.sub(r"[^\d]", "", str(raw_lvl)))
+                        except (ValueError, TypeError):
+                            slot_level = None
+                    target = attrs.get("target", "").strip()
+                    yield {
+                        "type": "spell_cast",
+                        "spell": {
+                            "name": name,
+                            "level": slot_level,
+                            "slot_level": slot_level,
+                            "target": target,
+                        }
+                    }
+                elif tag_type == "condition_update":
+                    action = attrs.get("action", "add").lower().strip()
+                    condition = attrs.get("condition", "").strip()
+                    reason = attrs.get("reason", "").strip()
+                    cond_payload = {
+                        "action": action,
+                        "condition": condition,
+                        "reason": reason,
+                    }
+                    yield {
+                        "type": "condition_updated",
+                        "condition": cond_payload,
+                        "update": cond_payload,
                     }
                 elif tag_type == "action_reject":
                     reason = attrs.get("reason", "Action violates fictional boundaries or rules.")

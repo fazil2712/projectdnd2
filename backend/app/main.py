@@ -19,6 +19,8 @@ from .engine.rules import (
     resolve_attack_damage,
     resolve_death_save,
     resolve_enemy_attack,
+    resolve_rest,
+    resolve_spell_cast,
     apply_damage,
     validate_inventory_item,
     validate_and_consume_spell_slot,
@@ -569,6 +571,74 @@ async def execute_player_action(req: ActionRequest, request: Request):
                     })
                 }
 
+            elif event_type == "rest_completed":
+                r_info = parsed_event["rest"]
+                rest_res = resolve_rest(
+                    character=character,
+                    rest_type=r_info.get("type", "short"),
+                    dice_to_spend=r_info.get("dice", 1),
+                )
+                await state_manager.save_character(character)
+                if r_info.get("type", "short") == "long":
+                    await lore_manager.advance_story_progress(
+                        tension_delta=1,
+                        milestone="The party took a Long Rest while dark forces advanced."
+                    )
+                    await chronicle_manager.append_milestone("Long Rest: Camp secured, HP and spell slots fully restored. Antagonist tension increased.")
+                else:
+                    await chronicle_manager.append_milestone(f"Short Rest: Healed {rest_res.get('healed', 0)} HP using Hit Dice.")
+
+                yield {
+                    "event": "rest_resolved",
+                    "data": json.dumps({
+                        "rest": rest_res,
+                        "character": character.model_dump(),
+                    })
+                }
+
+            elif event_type == "spell_cast":
+                sc_info = parsed_event["spell"]
+                spell_obj = compendium_manager.find_spell_in_catalog(sc_info["name"]) or {"name": sc_info["name"], "level": sc_info.get("slot_level", 0)}
+                cast_res = resolve_spell_cast(
+                    character=character,
+                    spell=spell_obj,
+                    slot_level=sc_info.get("slot_level")
+                )
+                enemy_status_msg = ""
+                if cast_res.get("is_damage") and cast_res.get("damage_total", 0) > 0:
+                    target_enemy = sc_info.get("target") or ""
+                    enemy_dmg_res = await lore_manager.damage_enemy(target_enemy, cast_res["damage_total"])
+                    if enemy_dmg_res.get("found"):
+                        enemy_status_msg = enemy_dmg_res["summary"]
+                await state_manager.save_character(character)
+                yield {
+                    "event": "spell_cast_resolved",
+                    "data": json.dumps({
+                        "spell_cast": cast_res,
+                        "character": character.model_dump(),
+                        "enemy_status": enemy_status_msg,
+                    })
+                }
+
+            elif event_type == "condition_updated":
+                cu_info = parsed_event["condition"]
+                act = cu_info.get("action", "add").lower()
+                cond_name = cu_info.get("condition", "").strip()
+                if cond_name:
+                    cur = [c for c in character.conditions if c.lower() != cond_name.lower()]
+                    if act == "add":
+                        cur.append(cond_name.capitalize())
+                    character.conditions = cur
+                    await state_manager.save_character(character)
+                    yield {
+                        "event": "condition_updated",
+                        "data": json.dumps({
+                            "condition": cu_info,
+                            "update": cu_info,
+                            "character": character.model_dump(),
+                        })
+                    }
+
             elif event_type == "done":
                 final_narrative = parsed_event.get("narrative", accumulated_narrative)
                 if not parser.check_triggered and not parser.rejection_triggered:
@@ -602,10 +672,43 @@ async def resolve_check_endpoint(req: CheckResolveRequest, request: Request):
         disadvantage=req.disadvantage,
     )
 
-    # 2. If it was a successful attack, resolve damage mechanically
+    # 2. If it was a successful weapon or spell attack, resolve damage mechanically
     damage_info = None
     enemy_status = None
-    if req.check_type == "attack" and check_result["success"]:
+    clean_target = normalize_identifier(req.target)
+    is_spell_attack = req.check_type in ("spell", "spell_attack") or any(normalize_identifier(s) == clean_target for s in character.known_spells)
+
+    if is_spell_attack and check_result["success"]:
+        spell_obj = compendium_manager.find_spell_in_catalog(req.target) or {"name": req.target, "level": 1}
+        cast_res = resolve_spell_cast(
+            character=character,
+            spell=spell_obj,
+            is_critical=check_result["roll"]["is_critical_success"]
+        )
+        check_result["mechanical_summary"] += f" | {cast_res['summary']}"
+        await state_manager.save_character(character)
+
+        if cast_res.get("is_damage") and cast_res.get("damage_total", 0) > 0:
+            damage_info = {
+                "weapon_name": req.target,
+                "damage_type": cast_res.get("damage_type", "magical"),
+                "damage_total": cast_res["damage_total"],
+                "dice_breakdown": cast_res.get("damage_breakdown", ""),
+                "is_critical": check_result["roll"]["is_critical_success"],
+                "summary": cast_res["summary"],
+            }
+            enemy_status = await lore_manager.damage_enemy(
+                target_name=req.player_action or req.target or "",
+                damage_amount=cast_res["damage_total"]
+            )
+            if enemy_status.get("found"):
+                e = enemy_status["enemy"]
+                if enemy_status.get("defeated"):
+                    check_result["mechanical_summary"] += f" | [ENEMY DEFEATED: {e['name']} reduced to 0 HP]"
+                else:
+                    check_result["mechanical_summary"] += f" | [ENEMY STATUS: {e['name']} takes {cast_res['damage_total']} {cast_res.get('damage_type', 'magical')} damage (HP: {e['current_hp']}/{e['max_hp']})]"
+
+    elif req.check_type == "attack" and check_result["success"]:
         damage_info = resolve_attack_damage(
             character=character,
             weapon_name=req.target,
@@ -816,6 +919,74 @@ async def resolve_check_endpoint(req: CheckResolveRequest, request: Request):
                     })
                 }
 
+            elif parsed_event["type"] == "rest_completed":
+                r_info = parsed_event["rest"]
+                rest_res = resolve_rest(
+                    character=character,
+                    rest_type=r_info.get("type", "short"),
+                    dice_to_spend=r_info.get("dice", 1),
+                )
+                await state_manager.save_character(character)
+                if r_info.get("type", "short") == "long":
+                    await lore_manager.advance_story_progress(
+                        tension_delta=1,
+                        milestone="The party took a Long Rest while dark forces advanced."
+                    )
+                    await chronicle_manager.append_milestone("Long Rest: Camp secured, HP and spell slots fully restored. Antagonist tension increased.")
+                else:
+                    await chronicle_manager.append_milestone(f"Short Rest: Healed {rest_res.get('healed', 0)} HP using Hit Dice.")
+
+                yield {
+                    "event": "rest_resolved",
+                    "data": json.dumps({
+                        "rest": rest_res,
+                        "character": character.model_dump(),
+                    })
+                }
+
+            elif parsed_event["type"] == "spell_cast":
+                sc_info = parsed_event["spell"]
+                spell_obj = compendium_manager.find_spell_in_catalog(sc_info["name"]) or {"name": sc_info["name"], "level": sc_info.get("slot_level", 0)}
+                cast_res = resolve_spell_cast(
+                    character=character,
+                    spell=spell_obj,
+                    slot_level=sc_info.get("slot_level")
+                )
+                enemy_status_msg = ""
+                if cast_res.get("is_damage") and cast_res.get("damage_total", 0) > 0:
+                    target_enemy = sc_info.get("target") or ""
+                    enemy_dmg_res = await lore_manager.damage_enemy(target_enemy, cast_res["damage_total"])
+                    if enemy_dmg_res.get("found"):
+                        enemy_status_msg = enemy_dmg_res["summary"]
+                await state_manager.save_character(character)
+                yield {
+                    "event": "spell_cast_resolved",
+                    "data": json.dumps({
+                        "spell_cast": cast_res,
+                        "character": character.model_dump(),
+                        "enemy_status": enemy_status_msg,
+                    })
+                }
+
+            elif parsed_event["type"] == "condition_updated":
+                cu_info = parsed_event["condition"]
+                act = cu_info.get("action", "add").lower()
+                cond_name = cu_info.get("condition", "").strip()
+                if cond_name:
+                    cur = [c for c in character.conditions if c.lower() != cond_name.lower()]
+                    if act == "add":
+                        cur.append(cond_name.capitalize())
+                    character.conditions = cur
+                    await state_manager.save_character(character)
+                    yield {
+                        "event": "condition_updated",
+                        "data": json.dumps({
+                            "condition": cu_info,
+                            "update": cu_info,
+                            "character": character.model_dump(),
+                        })
+                    }
+
             elif parsed_event["type"] == "check_required":
                 check_info = parsed_event["check"]
                 res = resolve_check(
@@ -888,6 +1059,34 @@ async def toggle_item(req: ItemToggleRequest):
     equipped = await state_manager.toggle_item_equipped(req.item_id)
     char = await state_manager.get_character()
     return {"item_id": req.item_id, "equipped": equipped, "character": char.model_dump()}
+
+
+class ConditionToggleRequest(BaseModel):
+    condition: str
+    action: str = "toggle"  # "add", "remove", or "toggle"
+
+
+@app.post("/api/game/character/conditions")
+async def modify_character_condition(req: ConditionToggleRequest):
+    """Adds, removes, or toggles an active 5e condition on the character."""
+    character = await state_manager.get_character()
+    c_name = req.condition.strip()
+    c_cap = c_name.capitalize()
+    cur = [c for c in character.conditions if c.lower() != c_name.lower()]
+
+    if req.action == "add":
+        cur.append(c_cap)
+    elif req.action == "remove":
+        pass  # already filtered out
+    else:  # toggle
+        if any(c.lower() == c_name.lower() for c in character.conditions):
+            pass
+        else:
+            cur.append(c_cap)
+
+    character.conditions = cur
+    await state_manager.save_character(character)
+    return {"condition": req.condition, "conditions": character.conditions, "character": character.model_dump()}
 
 
 @app.get("/api/compendium/items")

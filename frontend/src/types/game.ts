@@ -60,7 +60,9 @@ export interface Character {
   temp_hp: number;
   hit_dice_max: number;
   hit_dice_current: number;
+  hit_dice_remaining?: number;
   hit_die_type: string;
+  hit_dice?: string;
   death_saves: DeathSaves;
   saving_throw_proficiencies: string[];
   skill_proficiencies: string[];
@@ -197,6 +199,41 @@ export interface NPCData {
   note: string;
 }
 
+export interface RestResolution {
+  rest_type: 'short' | 'long' | string;
+  dice_spent?: number;
+  hit_dice_recovered?: number;
+  hit_dice_remaining?: number;
+  healed?: number;
+  current_hp: number;
+  max_hp: number;
+  spell_slots_reset?: boolean;
+  conditions_cleared?: boolean;
+  reason?: string;
+  summary: string;
+}
+
+export interface SpellCastResolution {
+  success: boolean;
+  spell_name: string;
+  level: number;
+  is_healing?: boolean;
+  heal_amount?: number;
+  is_damage?: boolean;
+  damage_total?: number;
+  damage_type?: string;
+  damage_breakdown?: string;
+  is_utility?: boolean;
+  summary: string;
+  error?: string;
+}
+
+export interface ConditionUpdateData {
+  action: 'add' | 'remove' | string;
+  condition: string;
+  reason?: string;
+}
+
 export interface NarrativeEntry {
   id: string;
   role: 'player' | 'dm' | 'system' | 'rejection';
@@ -212,6 +249,9 @@ export interface NarrativeEntry {
     location?: LocationData;
     story_progress?: StoryProgressData;
     npc?: NPCData;
+    rest?: RestResolution;
+    spell_cast?: SpellCastResolution;
+    condition?: ConditionUpdateData;
   };
 }
 

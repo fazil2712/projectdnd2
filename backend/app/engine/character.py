@@ -1,5 +1,5 @@
-from typing import Dict, List, Optional
-from pydantic import BaseModel, Field, computed_field
+from typing import Dict, List, Optional, Any
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 SKILL_TO_ABILITY: Dict[str, str] = {
     "athletics": "strength",
@@ -87,7 +87,26 @@ class Character(BaseModel):
     temp_hp: int = 0
     hit_dice_max: int = 3
     hit_dice_current: int = 3
+    hit_dice_remaining: int = 3
     hit_die_type: str = "d8"
+    hit_dice: str = "d8"
+
+    @model_validator(mode="before")
+    @classmethod
+    def set_hit_dice_defaults(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            lvl = data.get("level", 1)
+            if "hit_dice_remaining" not in data:
+                data["hit_dice_remaining"] = data.get("hit_dice_current", lvl)
+            if "hit_dice_current" not in data:
+                data["hit_dice_current"] = data.get("hit_dice_remaining", lvl)
+            if "hit_dice_max" not in data:
+                data["hit_dice_max"] = lvl
+            if "hit_die_type" not in data and "hit_dice" in data:
+                data["hit_die_type"] = data["hit_dice"]
+            elif "hit_dice" not in data and "hit_die_type" in data:
+                data["hit_dice"] = data["hit_die_type"]
+        return data
 
     death_saves: DeathSaves = Field(default_factory=DeathSaves)
 
