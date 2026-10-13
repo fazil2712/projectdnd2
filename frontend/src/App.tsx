@@ -89,6 +89,38 @@ export const App: React.FC = () => {
             ];
           });
         }
+
+        // Restore pending check state across page reloads
+        if (data.pending_check && data.pending_check.check) {
+          setActiveCheck(data.pending_check.check);
+          setPendingPlayerAction(data.pending_check.action_text || '');
+          setRollOutcome(null);
+          setRollError(null);
+          setIsRolling(false);
+          if (data.pending_check.pre_text) {
+            setEntries((prev) => {
+              const hasPre = prev.some((e) => e.content === data.pending_check.pre_text);
+              const toAdd: NarrativeEntry[] = [];
+              if (data.pending_check.action_text && !prev.some((e) => e.content === data.pending_check.action_text)) {
+                toAdd.push({
+                  id: `player-restored-${Date.now()}`,
+                  role: 'player',
+                  content: data.pending_check.action_text,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                });
+              }
+              if (!hasPre && data.pending_check.pre_text) {
+                toAdd.push({
+                  id: `dm-pre-restored-${Date.now()}`,
+                  role: 'dm',
+                  content: data.pending_check.pre_text,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                });
+              }
+              return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+            });
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to load initial state:', err);
@@ -174,6 +206,16 @@ export const App: React.FC = () => {
                 setRollError(null);
                 setIsRolling(false);
                 setIsStreaming(false);
+                if (accumulatedDmText.trim()) {
+                  const dmEntry: NarrativeEntry = {
+                    id: `dm-pre-${Date.now()}`,
+                    role: 'dm',
+                    content: accumulatedDmText.trim(),
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  };
+                  setEntries((prev) => [...prev, dmEntry]);
+                }
+                setStreamingText('');
                 return;
               } else if (currentEvent === 'action_rejected') {
                 const rejEntry: NarrativeEntry = {
@@ -298,6 +340,51 @@ export const App: React.FC = () => {
               } else if (currentEvent === 'token') {
                 accumulatedContinuation += data.content || '';
                 setStreamingText((prev) => prev + (data.content || ''));
+              } else if (currentEvent === 'check_required') {
+                // Chained check interrupt during continuation stream
+                setActiveCheck(data.check);
+                setRollOutcome(null);
+                setRollError(null);
+                setIsRolling(false);
+                setIsStreaming(false);
+                if (accumulatedContinuation.trim()) {
+                  const dmEntry: NarrativeEntry = {
+                    id: `dm-chain-${Date.now()}`,
+                    role: 'dm',
+                    content: accumulatedContinuation.trim(),
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  };
+                  setEntries((prev) => [...prev, dmEntry]);
+                }
+                setStreamingText('');
+                return;
+              } else if (currentEvent === 'item_granted') {
+                if (data.character) setCharacter(data.character);
+                const sysEntry: NarrativeEntry = {
+                  id: `item-grant-${Date.now()}`,
+                  role: 'system',
+                  content: `Item Acquired: ${data.item.name}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                };
+                setEntries((prev) => [...prev, sysEntry]);
+              } else if (currentEvent === 'item_consumed') {
+                if (data.character) setCharacter(data.character);
+                const sysEntry: NarrativeEntry = {
+                  id: `item-consume-${Date.now()}`,
+                  role: 'system',
+                  content: data.summary,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                };
+                setEntries((prev) => [...prev, sysEntry]);
+              } else if (currentEvent === 'level_up') {
+                if (data.character) setCharacter(data.character);
+                const sysEntry: NarrativeEntry = {
+                  id: `level-up-${Date.now()}`,
+                  role: 'system',
+                  content: `Level Up! Reached Level ${data.level_up.level}. ${data.level_up.notes?.join(', ') || ''}`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                };
+                setEntries((prev) => [...prev, sysEntry]);
               } else if (currentEvent === 'done') {
                 if (accumulatedContinuation.trim()) {
                   const dmEntry: NarrativeEntry = {

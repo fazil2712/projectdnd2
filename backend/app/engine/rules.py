@@ -257,11 +257,13 @@ def validate_and_consume_spell_slot(
     return True, f"Consumed 1 Level {slot_level} spell slot ({slot_obj.used_slots}/{slot_obj.max_slots} now used)."
 
 
-def apply_damage(character: Character, amount: int) -> Dict[str, Any]:
+def apply_damage(character: Character, amount: int, is_critical: bool = False) -> Dict[str, Any]:
     """
     Deduct damage from temporary HP first, then current HP.
     Tracks if character drops to 0 HP and becomes unconscious.
+    If taking damage while already at 0 HP, suffers 1 death save failure (2 on critical hit).
     """
+    was_at_zero = character.current_hp <= 0
     damage_remaining = max(0, amount)
     temp_lost = 0
     hp_lost = 0
@@ -294,6 +296,13 @@ def apply_damage(character: Character, amount: int) -> Dict[str, Any]:
             if "unconscious" not in character.conditions:
                 character.conditions.append("unconscious")
 
+            # 5e rule: Taking damage at 0 HP inflicts 1 death save failure (or 2 on a critical hit)
+            if was_at_zero and amount > 0:
+                failures_added = 2 if is_critical else 1
+                character.death_saves.failures = min(3, character.death_saves.failures + failures_added)
+                if character.death_saves.failures >= 3 and "dead" not in character.conditions:
+                    character.conditions.append("dead")
+
     return {
         "damage_taken": amount,
         "temp_hp_lost": temp_lost,
@@ -303,12 +312,14 @@ def apply_damage(character: Character, amount: int) -> Dict[str, Any]:
         "unconscious": character.current_hp <= 0,
         "became_unconscious": became_unconscious,
         "relentless_triggered": relentless_triggered,
+        "death_save_failures": character.death_saves.failures,
+        "dead": "dead" in character.conditions,
     }
 
 
 def apply_heal(character: Character, amount: int) -> Dict[str, Any]:
     """
-    Heal current HP up to max HP. Clears unconsciousness if HP rises above 0.
+    Heal current HP up to max HP. Clears unconsciousness and resets death saves if HP rises above 0.
     """
     heal_amount = max(0, amount)
     prior_hp = character.current_hp
@@ -316,18 +327,93 @@ def apply_heal(character: Character, amount: int) -> Dict[str, Any]:
     actual_healed = character.current_hp - prior_hp
 
     revived = False
-    if prior_hp == 0 and character.current_hp > 0:
+    if character.current_hp > 0:
         if "unconscious" in character.conditions:
             character.conditions.remove("unconscious")
         character.death_saves.successes = 0
         character.death_saves.failures = 0
-        revived = True
+        if prior_hp == 0:
+            revived = True
 
     return {
         "amount_healed": actual_healed,
         "current_hp": character.current_hp,
         "max_hp": character.max_hp,
         "revived": revived,
+    }
+
+
+def resolve_death_save(character: Character) -> Dict[str, Any]:
+    """
+    Deterministically rolls a 5e death saving throw for a character at 0 HP.
+    - Natural 20: Character regains 1 HP, wakes up, and resets death saves.
+    - Natural 1: Adds 2 death save failures.
+    - 10-19: Adds 1 death save success.
+    - 2-9: Adds 1 death save failure.
+    - Reaching 3 successes: Character stabilizes, recovers to 1 HP, wakes up, and resets death saves.
+    - Reaching 3 failures: Character dies.
+    """
+    roll = roll_d20(modifier=0, advantage=False, disadvantage=False)
+    raw = roll["selected_raw"]
+
+    # Halfling Lucky trait
+    if "halfling" in (character.race or "").lower() and raw == 1:
+        reroll_res = roll_d20(modifier=0, advantage=False, disadvantage=False)
+        roll["lucky_reroll"] = True
+        roll["raw_rolls"].append(reroll_res["selected_raw"])
+        roll["selected_raw"] = reroll_res["selected_raw"]
+        raw = reroll_res["selected_raw"]
+        roll["notation"] += f" [Halfling Lucky: rerolled nat 1 to {raw}]"
+
+    stabilized = False
+    died = False
+    summary = ""
+
+    if raw == 20:
+        character.current_hp = 1
+        character.death_saves.successes = 0
+        character.death_saves.failures = 0
+        if "unconscious" in character.conditions:
+            character.conditions.remove("unconscious")
+        stabilized = True
+        summary = "Natural 20! A surge of vital adrenaline shocks you back to life. You regain 1 HP and regain consciousness!"
+    elif raw == 1:
+        character.death_saves.failures = min(3, character.death_saves.failures + 2)
+        summary = f"Critical Failure (Nat 1)! Suffer 2 death save failures ({character.death_saves.successes} successes, {character.death_saves.failures}/3 failures)."
+    elif raw >= 10:
+        character.death_saves.successes = min(3, character.death_saves.successes + 1)
+        summary = f"Success (Rolled {raw})! ({character.death_saves.successes}/3 successes, {character.death_saves.failures}/3 failures)."
+    else:
+        character.death_saves.failures = min(3, character.death_saves.failures + 1)
+        summary = f"Failure (Rolled {raw})! ({character.death_saves.successes}/3 successes, {character.death_saves.failures}/3 failures)."
+
+    if not stabilized and character.death_saves.successes >= 3:
+        # Solo campaign stabilization: 3 successes -> recover to 1 HP, wake up, reset saves
+        character.current_hp = 1
+        character.death_saves.successes = 0
+        character.death_saves.failures = 0
+        if "unconscious" in character.conditions:
+            character.conditions.remove("unconscious")
+        stabilized = True
+        summary += " 3 Successes reached! You stabilize, cling to consciousness, and recover to 1 HP!"
+
+    if character.death_saves.failures >= 3:
+        died = True
+        if "dead" not in character.conditions:
+            character.conditions.append("dead")
+        summary += " 3 Failures reached! Your life fades away..."
+
+    return {
+        "roll": roll,
+        "raw": raw,
+        "success": raw >= 10,
+        "successes": character.death_saves.successes,
+        "failures": character.death_saves.failures,
+        "stabilized": stabilized,
+        "died": died,
+        "current_hp": character.current_hp,
+        "mechanical_summary": f"[DEATH SAVING THROW: {summary}]",
+        "summary": summary,
     }
 
 

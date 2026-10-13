@@ -4,8 +4,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from ..config import DATA_DIR
 from .character import Character, InventoryItem, SpellSlots, SpellSlotLevel
-from .rules import apply_heal
+from .rules import apply_heal, normalize_identifier
 from .dice import roll_dice
+from ..memory.storage import atomic_write_json
 
 ITEMS_CATALOG_FILE = DATA_DIR / "items_catalog.json"
 SPELLS_CATALOG_FILE = DATA_DIR / "spells_catalog.json"
@@ -90,16 +91,16 @@ class CompendiumManager:
         return self._spells_cache
 
     def find_item_in_catalog(self, query: str) -> Optional[Dict[str, Any]]:
-        clean_q = query.strip().lower()
-        # Search all categories
+        clean_q = normalize_identifier(query)
+        # Search all categories - exact match
         for cat in ["weapons", "armors", "potions_and_consumables", "gear_and_tools", "custom_campaign_items"]:
             for item in self._items_cache.get(cat, []):
-                if item.get("name", "").lower() == clean_q or item.get("id", "").lower() == clean_q:
+                if normalize_identifier(item.get("name", "")) == clean_q or normalize_identifier(item.get("id", "")) == clean_q:
                     return item
         # Partial match
         for cat in ["weapons", "armors", "potions_and_consumables", "gear_and_tools", "custom_campaign_items"]:
             for item in self._items_cache.get(cat, []):
-                if clean_q in item.get("name", "").lower():
+                if clean_q in normalize_identifier(item.get("name", "")):
                     return item
         return None
 
@@ -107,21 +108,19 @@ class CompendiumManager:
         """Saves a new custom item invented by the AI DM into items_catalog.json."""
         async with self._lock:
             custom_list = self._items_cache.setdefault("custom_campaign_items", [])
-            # Check if exists
             clean_name = item_dict.get("name", "Mysterious Item").strip()
-            existing = next((i for i in custom_list if i.get("name", "").lower() == clean_name.lower()), None)
+            norm_name = normalize_identifier(clean_name)
+            existing = next((i for i in custom_list if normalize_identifier(i.get("name", "")) == norm_name), None)
             if existing:
                 existing.update(item_dict)
                 saved_item = existing
             else:
-                new_id = f"custom_{len(custom_list) + 1}_{clean_name.lower().replace(' ', '_')}"
+                new_id = f"custom_{len(custom_list) + 1}_{norm_name}"
                 item_dict["id"] = item_dict.get("id") or new_id
                 custom_list.append(item_dict)
                 saved_item = item_dict
 
-            with open(ITEMS_CATALOG_FILE, "w", encoding="utf-8") as f:
-                json.dump(self._items_cache, f, indent=2)
-
+            atomic_write_json(ITEMS_CATALOG_FILE, self._items_cache)
             return saved_item
 
     async def grant_item_to_character(
@@ -132,6 +131,7 @@ class CompendiumManager:
         """
         Adds an item to the character's inventory.
         If the item is not in the base catalog, it is registered into custom_campaign_items.
+        Ensures newly granted items do not auto-equip over occupied armor/shield/weapon slots.
         Returns (updated_character, granted_item, is_newly_registered).
         """
         name = item_data.get("name", "Unknown Item").strip()
@@ -143,8 +143,9 @@ class CompendiumManager:
             matched = await self.register_custom_item(item_data)
             is_custom = True
 
-        # Check if character already has this item
-        existing_inv = next((i for i in character.inventory if i.name.lower() == name.lower()), None)
+        # Check if character already has this item using normalized comparison
+        norm_name = normalize_identifier(name)
+        existing_inv = next((i for i in character.inventory if normalize_identifier(i.name) == norm_name), None)
         qty = int(item_data.get("quantity", 1))
 
         if existing_inv:
@@ -156,13 +157,25 @@ class CompendiumManager:
         if isinstance(props, str):
             props = [p.strip() for p in props.split(",") if p.strip()]
 
+        item_type = matched.get("item_type", item_data.get("type", "gear"))
+        want_equipped = bool(item_data.get("equipped", False))
+
+        # Slot occupancy check: do not auto-equip over existing equipped armor/shield/weapon unless slot is empty
+        if want_equipped:
+            if item_type == "armor" and any(i.item_type == "armor" and i.equipped for i in character.inventory):
+                want_equipped = False
+            elif item_type == "shield" and any(i.item_type == "shield" and i.equipped for i in character.inventory):
+                want_equipped = False
+            elif item_type == "weapon" and any(i.item_type == "weapon" and i.equipped for i in character.inventory):
+                want_equipped = False
+
         new_item = InventoryItem(
             id=matched.get("id", f"item_{len(character.inventory) + 1}"),
             name=matched.get("name", name),
             quantity=qty,
             weight_lbs=float(matched.get("weight_lbs", item_data.get("weight_lbs", 1.0))),
-            item_type=matched.get("item_type", item_data.get("type", "gear")),
-            equipped=bool(item_data.get("equipped", False)),
+            item_type=item_type,
+            equipped=want_equipped,
             damage=matched.get("damage", item_data.get("damage")),
             damage_type=matched.get("damage_type", item_data.get("damage_type")),
             armor_base=matched.get("armor_base", item_data.get("armor_base")),

@@ -5,13 +5,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from ..config import CHRONICLE_FILE, CHAT_HISTORY_FILE
+from .storage import atomic_write_text, atomic_write_json
 
 
 class ChronicleManager:
     """
     Tier 3 Rolling Chat History & Persistent Chronicle.
-    Maintains a persistent chat log (chat_history.json), rolling memory buffer for DM prompts,
-    and a summary chronicle.md file for campaign milestones.
+    Maintains a persistent append-only chat log (chat_history.json) for full UI restoration,
+    a rolling memory buffer for DM prompts, and a summary chronicle.md file for campaign milestones.
     """
 
     def __init__(self, filepath: Optional[Path] = None, chat_history_file: Optional[Path] = None, buffer_size: int = 6):
@@ -22,14 +23,16 @@ class ChronicleManager:
         self._turn_history: List[Dict[str, str]] = []  # [{"role": "player"|"dm", "content": "..."}]
         self._chat_entries: List[Dict[str, Any]] = []  # Full persistent UI narrative entries
         self._turn_count: int = 0
+        self._last_summarized_index: int = 0
         self._ensure_file()
         self._load_chat_history()
 
     def _ensure_file(self) -> None:
         if not self.filepath.exists():
-            self.filepath.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.filepath, "w", encoding="utf-8") as f:
-                f.write("# Campaign Chronicle\n\n## Chapter 1: The Adventure Begins\n- The journey commenced.\n")
+            atomic_write_text(
+                self.filepath,
+                "# Campaign Chronicle\n\n## Chapter 1: The Adventure Begins\n- The journey commenced.\n"
+            )
 
     def _load_chat_history(self) -> None:
         """Loads persistent chat history from JSON on startup."""
@@ -39,28 +42,27 @@ class ChronicleManager:
                     entries = json.load(f)
                     if isinstance(entries, list):
                         self._chat_entries = entries
-                        # Rebuild in-memory turn history from persistent chat entries
+                        # In-memory turn history for DM prompts
                         self._turn_history = [
                             {"role": e["role"], "content": e["content"]}
                             for e in entries
                             if e.get("role") in ("player", "dm") and e.get("content")
                         ]
                         self._turn_count = len([e for e in entries if e.get("role") == "player"])
+                        self._last_summarized_index = max(0, len(self._turn_history) - (self.buffer_size * 2))
             except Exception as e:
                 print("Failed to load chat history:", e)
                 self._chat_entries = []
 
     def _save_chat_history_sync(self) -> None:
-        """Saves persistent chat entries to JSON synchronously."""
+        """Saves persistent chat entries to JSON atomically."""
         try:
-            self.chat_history_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.chat_history_file, "w", encoding="utf-8") as f:
-                json.dump(self._chat_entries, f, indent=2, ensure_ascii=False)
+            atomic_write_json(self.chat_history_file, self._chat_entries)
         except Exception as e:
             print("Failed to save chat history:", e)
 
     async def get_chat_history(self) -> List[Dict[str, Any]]:
-        """Returns the full chronological narrative history for UI restoration."""
+        """Returns the full chronological narrative history for UI restoration (never trimmed)."""
         async with self._lock:
             return list(self._chat_entries)
 
@@ -113,12 +115,13 @@ class ChronicleManager:
             self._turn_count += 1
             self._save_chat_history_sync()
 
-            # Check if summarization is needed (every 10 turns)
-            if self._turn_count % 10 == 0 and len(self._turn_history) > (self.buffer_size * 2):
+            # Check if summarization is needed (every 10 turns and backlog exceeds buffer)
+            max_messages = self.buffer_size * 2
+            if self._turn_count % 10 == 0 and len(self._turn_history) > (max_messages + self._last_summarized_index):
                 asyncio.create_task(self._summarize_old_turns())
 
     async def get_recent_turns(self) -> List[Dict[str, str]]:
-        """Returns the rolling buffer of recent turns."""
+        """Returns the rolling buffer of the latest N turns for LLM prompt context."""
         async with self._lock:
             max_messages = self.buffer_size * 2
             return list(self._turn_history[-max_messages:])
@@ -130,14 +133,22 @@ class ChronicleManager:
                 return f.read()
         return ""
 
+    def _append_milestone_locked(self, bullet_point: str) -> None:
+        """Internal helper to append milestone without acquiring self._lock (prevents deadlock)."""
+        clean_bullet = bullet_point.strip()
+        if not clean_bullet.startswith("-"):
+            clean_bullet = f"- {clean_bullet}"
+        existing = ""
+        if self.filepath.exists():
+            with open(self.filepath, "r", encoding="utf-8") as f:
+                existing = f.read()
+        new_content = f"{existing}\n{clean_bullet}\n" if existing else f"{clean_bullet}\n"
+        atomic_write_text(self.filepath, new_content)
+
     async def append_milestone(self, bullet_point: str) -> None:
-        """Appends a new canonical milestone to chronicle.md."""
+        """Appends a new canonical milestone to chronicle.md atomically."""
         async with self._lock:
-            with open(self.filepath, "a", encoding="utf-8") as f:
-                clean_bullet = bullet_point.strip()
-                if not clean_bullet.startswith("-"):
-                    clean_bullet = f"- {clean_bullet}"
-                f.write(f"\n{clean_bullet}\n")
+            self._append_milestone_locked(bullet_point)
 
     async def reset_chronicle(self, initial_markdown: str = "", initial_dm_narrative: Optional[str] = None) -> None:
         """Flushes turn history, resets chat entries with the new prologue, and rewrites chronicle markdown."""
@@ -145,6 +156,7 @@ class ChronicleManager:
             self._turn_history.clear()
             self._chat_entries.clear()
             self._turn_count = 0
+            self._last_summarized_index = 0
 
             if initial_dm_narrative:
                 self._turn_history.append({"role": "dm", "content": initial_dm_narrative})
@@ -156,19 +168,18 @@ class ChronicleManager:
                 })
 
             self._save_chat_history_sync()
-
-            with open(self.filepath, "w", encoding="utf-8") as f:
-                f.write(initial_markdown)
+            atomic_write_text(self.filepath, initial_markdown)
 
     async def _summarize_old_turns(self) -> None:
-        """Summarizes older conversation turns to chronicle.md and trims memory buffer."""
+        """Summarizes newly evicted conversation turns to chronicle.md without re-locking deadlock."""
         async with self._lock:
             max_messages = self.buffer_size * 2
-            if len(self._turn_history) <= max_messages:
+            eviction_cutoff = len(self._turn_history) - max_messages
+            if eviction_cutoff <= self._last_summarized_index:
                 return
 
-            to_summarize = self._turn_history[:-max_messages]
-            self._turn_history = self._turn_history[-max_messages:]
+            to_summarize = self._turn_history[self._last_summarized_index:eviction_cutoff]
+            self._last_summarized_index = eviction_cutoff
 
             summary_lines = []
             for item in to_summarize:
@@ -176,11 +187,10 @@ class ChronicleManager:
                 short = item["content"][:120].replace("\n", " ")
                 summary_lines.append(f"{prefix}: {short}...")
 
-            timestamp_str = f"Turn {self._turn_count - 5}"
+            timestamp_str = f"Turn {self._turn_count}"
             milestone = f"**{timestamp_str}**: Recent developments - " + "; ".join(summary_lines[-4:])
-            await self.append_milestone(milestone)
+            self._append_milestone_locked(milestone)
 
 
 # Global instance
 chronicle_manager = ChronicleManager()
-

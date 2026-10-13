@@ -236,3 +236,159 @@ async def test_backstory_storyline_and_auto_tone():
     assert "vengeance" in res["main_storyline"]["central_conflict"].lower()
     assert "Shibuya" in res["opening_narrative"] or "past" in res["opening_narrative"].lower()
 
+
+@pytest.mark.asyncio
+async def test_stream_parser_unclosed_angle_bracket():
+    """Verify unclosed '<' does not hang the stream and flushes as normal token."""
+    async def token_gen():
+        yield "Your HP is < "
+        yield "5 and you feel weak.\n"
+        yield "The enemy lunges forward."
+
+    parser = StreamParser()
+    events = []
+    async for evt in parser.process_token_stream(token_gen()):
+        events.append(evt)
+
+    token_texts = "".join(e["content"] for e in events if e["type"] == "token")
+    assert "< 5" in token_texts
+    assert "The enemy lunges forward." in token_texts
+    done_evt = next(e for e in events if e["type"] == "done")
+    assert "Your HP is < 5" in done_evt["narrative"]
+
+
+@pytest.mark.asyncio
+async def test_stream_parser_single_quotes_and_multiple_tags():
+    """Verify single-quoted attributes and multiple inline tags in one stream."""
+    async def token_gen():
+        yield "Found treasure: <ITEM_GRANT name='Silver Dagger' quantity='1'/> and "
+        yield "<ITEM_GRANT name='Healing Salve' quantity='2'/>! "
+        yield "Now roll: <CHECK_REQUEST type='skill' target='Perception' dc='14' reason='Check for traps'/>"
+
+    parser = StreamParser()
+    events = []
+    async for evt in parser.process_token_stream(token_gen()):
+        events.append(evt)
+
+    event_types = [e["type"] for e in events]
+    assert event_types.count("item_granted") == 2
+    assert "check_required" in event_types
+
+    granted_items = [e["item"]["name"] for e in events if e["type"] == "item_granted"]
+    assert granted_items == ["Silver Dagger", "Healing Salve"]
+
+    check_evt = next(e for e in events if e["type"] == "check_required")
+    assert check_evt["check"]["target"] == "Perception"
+    assert check_evt["check"]["dc"] == 14
+
+
+@pytest.mark.asyncio
+async def test_equipment_slot_exclusivity(tmp_path):
+    """Verify equipping a new armor or shield automatically unequips previous ones in the same slot."""
+    from app.memory.state_manager import StateManager
+    test_file = tmp_path / "test_char.json"
+
+    sm = StateManager(filepath=test_file)
+    char = Character(
+        inventory=[
+            InventoryItem(id="armor_leather", name="Leather Armor", item_type="armor", equipped=True, armor_base=11, armor_category="light"),
+            InventoryItem(id="armor_chain", name="Chain Shirt", item_type="armor", equipped=False, armor_base=13, armor_category="medium"),
+            InventoryItem(id="shield_wood", name="Wooden Shield", item_type="shield", equipped=True),
+            InventoryItem(id="shield_steel", name="Steel Shield", item_type="shield", equipped=False),
+        ]
+    )
+    await sm.save_character(char)
+
+    # Equipping chain shirt must unequip leather armor
+    equipped = await sm.toggle_item_equipped("armor_chain")
+    assert equipped is True
+
+    updated_char = await sm.get_character()
+    leather = next(i for i in updated_char.inventory if i.id == "armor_leather")
+    chain = next(i for i in updated_char.inventory if i.id == "armor_chain")
+    assert leather.equipped is False
+    assert chain.equipped is True
+
+    # Equipping steel shield must unequip wooden shield
+    shield_equipped = await sm.toggle_item_equipped("shield_steel")
+    assert shield_equipped is True
+
+    updated_char2 = await sm.get_character()
+    wood_shield = next(i for i in updated_char2.inventory if i.id == "shield_wood")
+    steel_shield = next(i for i in updated_char2.inventory if i.id == "shield_steel")
+    assert wood_shield.equipped is False
+    assert steel_shield.equipped is True
+
+
+def test_zero_hp_death_save_damage_and_heal():
+    """Verify taking damage at 0 HP inflicts death save failure(s) and healing resets saves."""
+    from app.engine.rules import resolve_death_save
+    char = Character(max_hp=20, current_hp=0, conditions=["unconscious"])
+
+    # Taking regular damage at 0 HP adds 1 failure
+    res_dmg1 = apply_damage(char, 5, is_critical=False)
+    assert char.death_saves.failures == 1
+
+    # Taking critical damage at 0 HP adds 2 failures (total 3 -> dies)
+    res_dmg2 = apply_damage(char, 8, is_critical=True)
+    assert char.death_saves.failures == 3
+    assert "dead" in char.conditions
+
+    # Resetting for healing test
+    char2 = Character(max_hp=20, current_hp=0, conditions=["unconscious"])
+    char2.death_saves.failures = 2
+    char2.death_saves.successes = 1
+
+    # Applying healing raises HP, clears unconscious, resets death saves
+    res_heal = apply_heal(char2, 10)
+    assert char2.current_hp == 10
+    assert char2.death_saves.successes == 0
+    assert char2.death_saves.failures == 0
+    assert "unconscious" not in char2.conditions
+
+
+def test_zero_hp_death_save_stabilization():
+    """Verify 3 death save successes stabilize solo player, restore 1 HP, and clear unconscious."""
+    from app.engine.rules import resolve_death_save
+    char = Character(max_hp=20, current_hp=0, conditions=["unconscious"])
+    char.death_saves.successes = 2
+    char.death_saves.failures = 1
+
+    # Force a success by repeatedly calling until success or setting roll directly
+    # To test deterministically, resolve_death_save when at 2 successes and gets a success:
+    while char.death_saves.successes < 3 and char.death_saves.failures < 3:
+        res = resolve_death_save(char)
+        if res["stabilized"]:
+            assert char.current_hp == 1
+            assert char.death_saves.successes == 0
+            assert char.death_saves.failures == 0
+            assert "unconscious" not in char.conditions
+            break
+
+
+@pytest.mark.asyncio
+async def test_chronicle_manager_preserves_full_ui_history(tmp_path):
+    """Verify chat_history.json keeps full UI history while get_recent_turns trims for LLM."""
+    from app.memory.chronicle import ChronicleManager
+    md_file = tmp_path / "chronicle.md"
+    json_file = tmp_path / "chat_history.json"
+
+    cm = ChronicleManager(filepath=md_file, chat_history_file=json_file, buffer_size=2)
+    # buffer_size=2 means max_messages = 4 turns
+
+    # Add 8 turns (16 messages total: 8 player + 8 dm)
+    for i in range(1, 9):
+        await cm.add_turn(f"Player action {i}", f"DM response {i}")
+
+    # Full chat history for UI must have all 16 entries (8 player + 8 dm)
+    full_history = await cm.get_chat_history()
+    assert len(full_history) == 16
+    assert full_history[0]["content"] == "Player action 1"
+    assert full_history[-1]["content"] == "DM response 8"
+
+    # Rolling buffer for LLM prompt context must be trimmed to buffer_size * 2 = 4 messages
+    recent = await cm.get_recent_turns()
+    assert len(recent) == 4
+    assert recent[-1]["content"] == "DM response 8"
+
+

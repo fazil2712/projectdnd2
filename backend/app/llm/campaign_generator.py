@@ -305,7 +305,7 @@ async def generate_campaign_world_and_storyline(
 async def _call_ollama_json(messages: list, model: str) -> Optional[Dict[str, Any]]:
     """Helper to stream/collect LLM response and parse JSON."""
     collected = ""
-    async for token in ollama_client.stream_chat(messages, model=model):
+    async for token in ollama_client.stream_chat(messages, model=model, format="json"):
         collected += token
 
     json_match = re.search(r"\{[\s\S]*\}", collected)

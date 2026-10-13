@@ -3,6 +3,7 @@ import asyncio
 from pathlib import Path
 from typing import Dict, Any, Optional
 from ..config import LORE_FILE
+from .storage import atomic_write_json
 
 
 class LoreManager:
@@ -43,8 +44,7 @@ class LoreManager:
         async with self._lock:
             if location_id in self._lore.get("locations", {}):
                 self._lore["current_location_id"] = location_id
-                with open(self.filepath, "w", encoding="utf-8") as f:
-                    json.dump(self._lore, f, indent=2)
+                atomic_write_json(self.filepath, self._lore)
                 return True
             return False
 
@@ -75,8 +75,7 @@ class LoreManager:
                 "visible_npcs": [],
                 "exits": ["outer_realm", "interior_quarters"]
             }
-            with open(self.filepath, "w", encoding="utf-8") as f:
-                json.dump(self._lore, f, indent=2)
+            atomic_write_json(self.filepath, self._lore)
 
     async def format_targeted_context(self) -> str:
         """

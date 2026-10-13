@@ -59,7 +59,8 @@ class OllamaClient:
     async def stream_chat(
         self,
         messages: List[Dict[str, str]],
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        format: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         """
         Streams response tokens. Falls back to Simulation DM if model not locally present.
@@ -73,7 +74,7 @@ class OllamaClient:
                 yield token
             return
 
-        payload = {
+        payload: Dict[str, Any] = {
             "model": chosen_model,
             "messages": messages,
             "stream": True,
@@ -84,6 +85,8 @@ class OllamaClient:
                 "repeat_penalty": REPEAT_PENALTY,
             }
         }
+        if format:
+            payload["format"] = format
 
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:

@@ -17,6 +17,7 @@ from .engine.character import Character
 from .engine.rules import (
     resolve_check,
     resolve_attack_damage,
+    resolve_death_save,
     validate_inventory_item,
     validate_and_consume_spell_slot,
     validate_and_clamp_character_stats,
@@ -129,13 +130,14 @@ async def startup_event():
 
 @app.get("/api/game/state")
 async def get_game_state():
-    """Returns complete game state: Character sheet, location lore, chronicle, and chat history."""
+    """Returns complete game state: Character sheet, location lore, chronicle, chat history, and any active pending check."""
     char = await state_manager.get_character()
     lore = await lore_manager.get_raw_lore()
     location = await lore_manager.get_current_location()
     chronicle_text = await chronicle_manager.get_chronicle_markdown()
     recent_turns = await chronicle_manager.get_recent_turns()
     chat_history = await chronicle_manager.get_chat_history()
+    pending_check = await state_manager.get_pending_check()
 
     return {
         "character": char.model_dump(),
@@ -144,6 +146,7 @@ async def get_game_state():
         "chronicle_text": chronicle_text,
         "recent_turns": recent_turns,
         "chat_history": chat_history,
+        "pending_check": pending_check,
         "active_model": ollama_client.active_model,
         "supported_models": SUPPORTED_MODELS,
     }
@@ -212,25 +215,121 @@ async def execute_player_action(req: ActionRequest, request: Request):
     character = await state_manager.get_character()
     action_text = req.action.strip()
 
-    # Pre-validation 1: Unconscious check
+    # Pre-validation 1: Unconscious / 0-HP Solo Death Save Mechanics
     if "unconscious" in character.conditions or character.current_hp <= 0:
-        async def unconscious_stream():
-            rejection = {
-                "type": "action_rejected",
-                "rejection": {
-                    "reason": "You are currently unconscious at 0 HP. You cannot take actions until revived or stabilized."
+        if "dead" in character.conditions:
+            async def dead_stream():
+                rejection = {
+                    "type": "action_rejected",
+                    "rejection": {
+                        "reason": "Your character has perished (3 death save failures). Please start a new campaign or reset the game."
+                    }
                 }
-            }
-            yield {"event": "action_rejected", "data": json.dumps(rejection)}
-            yield {
-                "event": "token",
-                "data": json.dumps({
-                    "content": "You drift in the dark abyss of unconsciousness. The world fades, and only the rhythm of your failing heartbeat remains..."
-                })
-            }
-            yield {"event": "done", "data": json.dumps({"narrative": "You are unconscious."})}
+                yield {"event": "action_rejected", "data": json.dumps(rejection)}
+                yield {
+                    "event": "token",
+                    "data": json.dumps({
+                        "content": "The mortal realm fades. Your character has passed beyond the veil. Start a new campaign to continue."
+                    })
+                }
+                yield {"event": "done", "data": json.dumps({"narrative": "Your character has perished."})}
 
-        return EventSourceResponse(unconscious_stream())
+            return EventSourceResponse(dead_stream())
+
+        # Solo campaign death save resolution
+        death_res = resolve_death_save(character)
+        await state_manager.save_character(character)
+
+        if death_res["stabilized"]:
+            # Character stabilized and regained 1 HP! Stream DM recovery narrative
+            targeted_lore = await lore_manager.format_targeted_context()
+            chronicle_summary = await chronicle_manager.get_chronicle_markdown()
+            recent_turns = await chronicle_manager.get_recent_turns()
+            system_prompt = build_system_prompt(character, targeted_lore, chronicle_summary)
+            messages = build_messages_payload(
+                system_prompt=system_prompt,
+                recent_turns=recent_turns,
+                current_action=f"Death Saving Throw: {action_text}",
+                mechanical_resolution=death_res["mechanical_summary"]
+            )
+            chosen_model = req.model or ollama_client.active_model
+
+            async def recovery_stream():
+                yield {
+                    "event": "roll_resolved",
+                    "data": json.dumps({
+                        "check_result": {
+                            "mechanical_summary": death_res["summary"],
+                            "roll": death_res["roll"],
+                            "success": True,
+                        }
+                    })
+                }
+                parser = StreamParser()
+                raw_stream = ollama_client.stream_chat(messages, model=chosen_model)
+                accumulated = ""
+                async for parsed_event in parser.process_token_stream(raw_stream):
+                    if await request.is_disconnected():
+                        break
+                    if parsed_event["type"] == "token":
+                        accumulated += parsed_event["content"]
+                        yield {
+                            "event": "token",
+                            "data": json.dumps({"content": parsed_event["content"]})
+                        }
+                    elif parsed_event["type"] == "done":
+                        final_nar = parsed_event.get("narrative", accumulated)
+                        full_action_record = f"Death Save Recovery: {death_res['summary']}"
+                        await chronicle_manager.add_turn(
+                            full_action_record,
+                            final_nar,
+                            roll_metadata={"check_result": {"mechanical_summary": death_res["summary"]}}
+                        )
+                        yield {
+                            "event": "done",
+                            "data": json.dumps({"narrative": final_nar})
+                        }
+
+            return EventSourceResponse(recovery_stream())
+
+        elif death_res["died"]:
+            async def death_stream():
+                yield {
+                    "event": "roll_resolved",
+                    "data": json.dumps({
+                        "check_result": {
+                            "mechanical_summary": death_res["summary"],
+                            "roll": death_res["roll"],
+                            "success": False,
+                        }
+                    })
+                }
+                msg = f"{death_res['summary']}\n\nThe cold grip of death overtakes you. Your vision fades to black as your journey ends."
+                yield {"event": "token", "data": json.dumps({"content": msg})}
+                await chronicle_manager.add_turn("Death Save", death_res["summary"])
+                yield {"event": "done", "data": json.dumps({"narrative": death_res["summary"]})}
+
+            return EventSourceResponse(death_stream())
+
+        else:
+            # Still unconscious, clinging to life
+            async def clinging_stream():
+                yield {
+                    "event": "roll_resolved",
+                    "data": json.dumps({
+                        "check_result": {
+                            "mechanical_summary": death_res["summary"],
+                            "roll": death_res["roll"],
+                            "success": death_res["success"],
+                        }
+                    })
+                }
+                msg = f"{death_res['summary']}\n\nYou drift unconscious in the shadows, fighting for every breath..."
+                yield {"event": "token", "data": json.dumps({"content": msg})}
+                await chronicle_manager.add_turn("Death Save", death_res["summary"])
+                yield {"event": "done", "data": json.dumps({"narrative": death_res["summary"]})}
+
+            return EventSourceResponse(clinging_stream())
 
     # Assemble Prompts & Context
     targeted_lore = await lore_manager.format_targeted_context()
@@ -276,6 +375,14 @@ async def execute_player_action(req: ActionRequest, request: Request):
                 )
                 check_info["modifier"] = res["modifier"]
                 check_info["resolved_name"] = res["resolved_name"]
+
+                # Persist pending check state across refreshes
+                pending_payload = {
+                    "check": check_info,
+                    "pre_text": accumulated_narrative,
+                    "action_text": action_text
+                }
+                await state_manager.set_pending_check(pending_payload)
 
                 yield {
                     "event": "check_required",
@@ -457,18 +564,46 @@ async def resolve_check_endpoint(req: CheckResolveRequest, request: Request):
                         "character": character.model_dump(),
                     })
                 }
+            elif parsed_event["type"] == "check_required":
+                check_info = parsed_event["check"]
+                res = resolve_check(
+                    character=character,
+                    check_type=check_info.get("type", "skill"),
+                    target=check_info.get("target", "Dexterity"),
+                    dc=check_info.get("dc", 15),
+                )
+                check_info["modifier"] = res["modifier"]
+                check_info["resolved_name"] = res["resolved_name"]
+
+                # Persist pending check state for chained rolls
+                pending_payload = {
+                    "check": check_info,
+                    "pre_text": full_continuation,
+                    "action_text": action_text
+                }
+                await state_manager.set_pending_check(pending_payload)
+
+                yield {
+                    "event": "check_required",
+                    "data": json.dumps({"check": check_info, "pre_text": full_continuation})
+                }
+
             elif parsed_event["type"] == "done":
                 narrative = parsed_event.get("narrative", full_continuation)
-                # Record the full resolved action, mechanical roll result, & continuation narrative
-                full_action_record = f"{action_text} (Roll: {check_result['roll']['notation']} -> {'SUCCESS' if check_result['success'] else 'FAILURE'})"
-                await chronicle_manager.add_turn(
-                    full_action_record,
-                    narrative,
-                    roll_metadata={
-                        "check_result": check_result,
-                        "damage_info": damage_info
-                    }
-                )
+                if not parser.check_triggered:
+                    # Clear pending check once resolution is complete
+                    await state_manager.clear_pending_check()
+
+                    # Record the full resolved action, mechanical roll result, & continuation narrative
+                    full_action_record = f"{action_text} (Roll: {check_result['roll']['notation']} -> {'SUCCESS' if check_result['success'] else 'FAILURE'})"
+                    await chronicle_manager.add_turn(
+                        full_action_record,
+                        narrative,
+                        roll_metadata={
+                            "check_result": check_result,
+                            "damage_info": damage_info
+                        }
+                    )
 
                 yield {
                     "event": "done",
@@ -538,6 +673,7 @@ async def manual_level_up(req: LevelUpRequest):
 @app.post("/api/game/reset")
 async def reset_game():
     """Resets game state to campaign default."""
+    await state_manager.clear_pending_check()
     default_char = Character()
     await state_manager.save_character(default_char)
     default_prologue = (
@@ -560,6 +696,7 @@ async def create_campaign_endpoint(req: CampaignCreationRequest):
     a new 5e character sheet with deterministic modifiers, 5e stat clamping,
     and dynamic campaign storyline generation.
     """
+    await state_manager.clear_pending_check()
     from .engine.character import Character, AbilityScores, InventoryItem, SpellSlots, SpellSlotLevel
 
     # 1. 5e Ability Score Validation & Clamping (Anti-100 STR rule)
